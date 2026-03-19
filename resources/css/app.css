@@ -177,3 +177,5 @@
     50% { opacity: 0.5; }
 }
 .pulse-neon { animation: pulse-neon 2s ease-in-out infinite; }
+
+[x-cloak] { display: none !important; }
