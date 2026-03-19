@@ -10,10 +10,16 @@
 </head>
 <body class="bg-animated min-h-screen antialiased">
 
-<div class="flex h-screen overflow-hidden">
+<div class="flex h-screen overflow-hidden" x-data="{ sidebarOpen: false }">
 
     {{-- Sidebar --}}
-    <aside class="w-64 shrink-0 flex flex-col glass-card rounded-none border-0 border-r border-white/[0.08]">
+    {{-- Desktop (lg+): always w-64. Mobile: w-0 hidden, w-64 when open. --}}
+    <aside
+        class="shrink-0 flex flex-col glass-card rounded-none border-0 border-r border-white/[0.08]
+               overflow-hidden transition-all duration-300 w-0 lg:w-64"
+        :class="{ 'w-64': sidebarOpen }"
+    >
+    <div class="w-64 flex flex-col flex-1 min-h-0">
         {{-- Logo --}}
         <div class="p-6 border-b border-white/[0.08]">
             <div class="flex items-center gap-3">
@@ -98,15 +104,27 @@
                 Profile
             </a>
         </div>
+    </div>
     </aside>
 
     {{-- Main content --}}
-    <main class="flex-1 overflow-y-auto">
+    <main class="flex-1 overflow-y-auto min-w-0">
         {{-- Top bar --}}
-        <header class="sticky top-0 z-10 px-8 py-4 border-b border-white/[0.06] bg-black/20 flex items-center justify-between header-blur">
-            <div>
-                <h1 class="text-lg font-semibold text-white">{{ $title ?? 'Dashboard' }}</h1>
-                <p class="text-xs text-white/30 mt-0.5">{{ now()->format('D, d M Y · H:i') }} UTC</p>
+        <header class="sticky top-0 z-10 px-4 sm:px-8 py-4 border-b border-white/[0.06] bg-black/20 flex items-center justify-between header-blur">
+            <div class="flex items-center gap-3">
+                {{-- Hamburger (mobile only) --}}
+                <button
+                    x-on:click="sidebarOpen = !sidebarOpen"
+                    class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <div>
+                    <h1 class="text-lg font-semibold text-white">{{ $title ?? 'Dashboard' }}</h1>
+                    <p class="text-xs text-white/30 mt-0.5 hidden sm:block">{{ now()->format('D, d M Y · H:i') }} UTC</p>
+                </div>
             </div>
             <div class="flex items-center gap-3">
                 {{-- Trading mode toggle --}}
@@ -122,7 +140,7 @@
         </header>
 
         {{-- Page content --}}
-        <div class="p-8">
+        <div class="p-4 sm:p-6 lg:p-8">
             {{ $slot }}
         </div>
     </main>

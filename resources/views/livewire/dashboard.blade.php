@@ -1,7 +1,7 @@
 <div wire:poll.30s>
 
     {{-- Stats grid --}}
-    <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
         <div class="glass-card p-5">
             <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Portfolio Value</div>
@@ -143,17 +143,17 @@
             @if($recentDecisions->isEmpty())
                 <div class="text-center py-8 text-white/30 text-sm">No decisions yet. Run <code class="text-neon-blue">php artisan trade:analyze</code></div>
             @else
-                <div class="overflow-y-auto">
+                <div class="overflow-x-auto overflow-y-auto">
                 <table class="table-glass">
                     <thead>
                         <tr>
                             <th>Zeit</th>
                             <th>Asset</th>
                             <th>Action</th>
-                            <th>Confidence</th>
+                            <th class="hidden md:table-cell">Confidence</th>
                             <th>Betrag</th>
-                            <th>Kaufpreis</th>
-                            <th>Akt. Preis</th>
+                            <th class="hidden lg:table-cell">Kaufpreis</th>
+                            <th class="hidden lg:table-cell">Akt. Preis</th>
                             <th>
                                 G/V
                                 @if($totalPnl !== null)
@@ -169,7 +169,7 @@
                         @foreach($recentDecisions as $d)
                             <tr>
                                 <td class="text-xs text-white/40 whitespace-nowrap">
-                                    {{ $d->created_at->format('d.m.Y') }}
+                                    {{ $d->created_at->format('d.m.') }}
                                     <div class="text-white/25">{{ $d->created_at->format('H:i') }}</div>
                                 </td>
                                 <td class="font-medium text-white">{{ $d->asset_symbol }}</td>
@@ -181,7 +181,7 @@
                                         {{ strtoupper($d->action) }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="hidden md:table-cell">
                                     <div class="flex items-center gap-2">
                                         <div class="w-16 h-1 bg-white/10 rounded-full">
                                             <div class="h-full rounded-full bg-neon-blue" style="width: {{ $d->confidence }}%"></div>
@@ -198,14 +198,14 @@
                                         <div class="text-xs text-white/30 font-normal">fee €{{ number_format($d->execution->fee_usd / 100, 2) }}</div>
                                     @endif
                                 </td>
-                                <td class="font-mono text-sm">
+                                <td class="font-mono text-sm hidden lg:table-cell">
                                     @if($d->execution?->price_at_execution)
                                         €{{ number_format($d->execution->price_at_execution / 100, 4) }}
                                     @else
                                         <span class="text-white/25">—</span>
                                     @endif
                                 </td>
-                                <td class="font-mono text-sm">
+                                <td class="font-mono text-sm hidden lg:table-cell">
                                     @php $curPrice = $currentPrices[$d->asset_symbol] ?? null; @endphp
                                     @if($curPrice)
                                         €{{ number_format($curPrice, 4) }}
@@ -216,6 +216,7 @@
                                 <td class="font-mono text-sm">
                                     @php
                                         $pnl = null;
+                                        $curPrice = $currentPrices[$d->asset_symbol] ?? null;
                                         if ($curPrice && $d->execution?->price_at_execution && $d->execution?->filled_size) {
                                             $fillPrice = $d->execution->price_at_execution / 100;
                                             $size      = (float) $d->execution->filled_size;
@@ -244,7 +245,7 @@
                                         </span>
                                         </div>
                                     @elseif(!$autoTrade)
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
                                             <button wire:click="executeDecision({{ $d->id }})" class="btn-neon-green !py-1 !px-3 !text-xs inline-flex items-center gap-1">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                                 Execute
@@ -277,23 +278,23 @@
             <div class="space-y-2">
                 @foreach($recentSignals as $signal)
                     @php $score = (float) $signal->signal_score; @endphp
-                    <div class="flex items-center gap-4 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
-                        <span class="text-sm font-bold w-12 font-mono
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                        <span class="text-sm font-bold w-10 shrink-0 font-mono
                             @if($score > 0.1) neon-text-green @elseif($score < -0.1) neon-text-red @else text-white/50 @endif">
                             {{ $signal->asset_symbol }}
                         </span>
-                        <span class="text-xs px-2 py-0.5 rounded-full
+                        <span class="text-xs px-2 py-0.5 rounded-full shrink-0 hidden sm:inline
                             @if($score > 0.1) bg-neon-green/10 text-neon-green border border-neon-green/20
                             @elseif($score < -0.1) bg-neon-red/10 text-neon-red border border-neon-red/20
                             @else bg-white/5 text-white/40 border border-white/10 @endif">
                             {{ $signal->signal_type }}
                         </span>
-                        <span class="text-xs font-mono font-semibold w-14
+                        <span class="text-xs font-mono font-semibold w-12 shrink-0
                             @if($score > 0.1) text-neon-green @elseif($score < -0.1) text-neon-red @else text-white/40 @endif">
                             {{ $score >= 0 ? '+' : '' }}{{ number_format($score, 3) }}
                         </span>
-                        <span class="flex-1 text-xs text-white/40 truncate">{{ $signal->article?->title }}</span>
-                        <span class="text-xs text-white/25 shrink-0">{{ $signal->created_at->diffForHumans() }}</span>
+                        <span class="flex-1 text-xs text-white/40 truncate min-w-0">{{ $signal->article?->title }}</span>
+                        <span class="text-xs text-white/25 shrink-0 hidden sm:inline">{{ $signal->created_at->diffForHumans() }}</span>
                     </div>
                 @endforeach
             </div>

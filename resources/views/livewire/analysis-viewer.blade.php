@@ -1,6 +1,6 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    {{-- Analysis List --}}
-    <div class="glass-card overflow-hidden">
+    {{-- Analysis List — auf Mobile versteckt wenn Detail geöffnet --}}
+    <div class="glass-card overflow-hidden {{ $selectedId ? 'hidden lg:block' : '' }}">
         <div class="p-4 border-b border-white/[0.06]">
             <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Analysis Runs</h3>
         </div>
@@ -37,11 +37,17 @@
         @endif
     </div>
 
-    {{-- Analysis Detail --}}
-    <div class="glass-card p-6">
+    {{-- Analysis Detail — auf Mobile versteckt wenn nichts ausgewählt --}}
+    <div class="glass-card p-6 {{ !$selectedId ? 'hidden lg:block' : '' }}">
         @if($selected)
-            <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-white">Analysis #{{ $selected->id }}</h3>
+            <div class="mb-4 flex items-center gap-3">
+                {{-- Zurück-Button (nur Mobile) --}}
+                <button wire:click="$set('selectedId', null)" class="lg:hidden text-white/40 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h3 class="text-sm font-semibold text-white flex-1">Analysis #{{ $selected->id }}</h3>
                 <span class="text-xs text-white/30">{{ $selected->created_at->format('d.m.Y H:i:s') }}</span>
             </div>
 
@@ -61,10 +67,10 @@
                     <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
                         <span class="font-bold text-white w-10">{{ $d->asset_symbol }}</span>
                         <span class="badge-{{ $d->action }}">{{ strtoupper($d->action) }}</span>
-                        <div class="flex-1">
-                            <div class="text-xs text-white/50">{{ $d->rationale }}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-white/50 line-clamp-2">{{ $d->rationale }}</div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right shrink-0">
                             <div class="text-xs font-mono text-white">{{ $d->confidence }}%</div>
                             <div class="text-xs text-white/30">${{ number_format($d->amountInDollars(), 2) }}</div>
                         </div>
