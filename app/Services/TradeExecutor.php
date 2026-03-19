@@ -86,11 +86,11 @@ class TradeExecutor
             }
 
             $cashCents       = (int) round($breakdown['cash_eur'] * 100);
-            $minReserveCents = config('trading.min_reserve_usd', 200) * 100;
+            $minReserveCents = (int) round(TradingSettings::minReserve() * 100);
 
             if (($cashCents - $decision->amount_usd) < $minReserveCents) {
                 return "Insufficient cash reserve. Available: €" . number_format($breakdown['cash_eur'], 2)
-                    . ", Required reserve: €" . config('trading.min_reserve_usd', 200);
+                    . ", Required reserve: €" . number_format(TradingSettings::minReserve(), 2);
             }
         }
 

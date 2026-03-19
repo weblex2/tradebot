@@ -1,7 +1,7 @@
 <div wire:poll.30s>
 
     {{-- Stats grid --}}
-    <div class="grid grid-cols-6 gap-4 mb-6">
+    <div class="grid grid-cols-4 gap-4 mb-6">
 
         <div class="glass-card p-5">
             <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Portfolio Value</div>
@@ -25,6 +25,24 @@
                 @endif
             </div>
             <div class="text-xs text-white/30 mt-1">für neue Käufe</div>
+        </div>
+
+        <div class="glass-card p-5">
+            <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Mindest-Reserve</div>
+            <form wire:submit.prevent="saveMinReserve" class="flex items-center gap-2 mt-1">
+                <span class="text-white/50 text-sm">€</span>
+                <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    wire:model="minReserveInput"
+                    class="w-full bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-lg font-bold focus:outline-none focus:border-neon-blue/60"
+                >
+                <button type="submit" class="text-xs px-2 py-1 rounded-lg bg-neon-blue/20 border border-neon-blue/40 text-neon-blue hover:bg-neon-blue/30 transition-colors shrink-0">
+                    OK
+                </button>
+            </form>
+            <div class="text-xs text-white/30 mt-2">nicht unterschreiten</div>
         </div>
 
         <div class="glass-card p-5">

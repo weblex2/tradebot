@@ -82,7 +82,7 @@
     {{-- Main content --}}
     <main class="flex-1 overflow-y-auto">
         {{-- Top bar --}}
-        <header class="sticky top-0 z-10 px-8 py-4 border-b border-white/[0.06] backdrop-blur-xl bg-black/20 flex items-center justify-between">
+        <header class="sticky top-0 z-10 px-8 py-4 border-b border-white/[0.06] bg-black/20 flex items-center justify-between header-blur">
             <div>
                 <h1 class="text-lg font-semibold text-white">{{ $title ?? 'Dashboard' }}</h1>
                 <p class="text-xs text-white/30 mt-0.5">{{ now()->format('D, d M Y · H:i') }} UTC</p>

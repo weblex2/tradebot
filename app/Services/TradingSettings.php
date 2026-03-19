@@ -33,4 +33,15 @@ class TradingSettings
         Setting::set('trading_mode', 'paper');
         Cache::forget(self::CACHE_KEY);
     }
+
+    public static function minReserve(): float
+    {
+        return (float) Setting::get('min_reserve_eur', config('trading.min_reserve_usd', 200));
+    }
+
+    public static function setMinReserve(float $eur): void
+    {
+        Setting::set('min_reserve_eur', max(0, $eur));
+        Cache::forget('trading.min_reserve');
+    }
 }

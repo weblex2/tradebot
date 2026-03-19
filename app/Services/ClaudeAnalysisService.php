@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Services\TradingSettings;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -64,8 +65,8 @@ class ClaudeAnalysisService
         $allowedAssets = implode(', ', config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']));
 
         $cashEur     = (float) ($portfolio['cash_eur'] ?? 0);
-        $maxTradeEur = (float) config('trading.max_trade_usd', 500); // limit applies in EUR
-        $minReserve  = (float) config('trading.min_reserve_usd', 200);
+        $maxTradeEur = (float) config('trading.max_trade_usd', 500);
+        $minReserve  = TradingSettings::minReserve();
         $spendable   = max(0, round($cashEur - $minReserve, 2));
 
         $system = <<<SYSTEM

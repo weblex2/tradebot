@@ -156,6 +156,20 @@
     }
 }
 
+/* Header blur via pseudo-element so that position:fixed children are not affected */
+.header-blur {
+    position: relative;
+    isolation: isolate;
+}
+.header-blur::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    z-index: -1;
+}
+
 /* Loading pulse for live data */
 @keyframes pulse-neon {
     0%, 100% { opacity: 1; }

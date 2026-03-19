@@ -8,6 +8,7 @@ use App\Models\SentimentSignal;
 use App\Models\Source;
 use App\Models\TradeDecision;
 use App\Services\CoinbaseService;
+use App\Services\TradingSettings;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -15,6 +16,20 @@ use Livewire\Component;
 #[Layout('layouts.tradebot', ['title' => 'Dashboard'])]
 class Dashboard extends Component
 {
+    public string $minReserveInput = '';
+
+    public function mount(): void
+    {
+        $this->minReserveInput = (string) TradingSettings::minReserve();
+    }
+
+    public function saveMinReserve(): void
+    {
+        $value = (float) str_replace(',', '.', $this->minReserveInput);
+        TradingSettings::setMinReserve($value);
+        Cache::forget('dashboard.portfolio');
+    }
+
     public function render()
     {
         $stats = Cache::remember('dashboard.stats', 60, function () {

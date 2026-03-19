@@ -1,5 +1,9 @@
 # Tradebot – AI-Powered Crypto Trading System
 
+## ⚠ CRITICAL RULES
+
+- **NEVER commit automatically.** Only create a git commit when the user explicitly asks for it (e.g. "mach einen commit", "commit das bitte"). No exceptions.
+
 ## Project Location & Stack
 
 - **Root:** `/var/www/trading` (served via nginx → `public/`)
