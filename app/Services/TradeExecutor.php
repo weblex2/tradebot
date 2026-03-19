@@ -4,6 +4,7 @@ namespace App\Services;
 use App\Jobs\GetOrderStatusJob;
 use App\Models\Execution;
 use App\Models\TradeDecision;
+use App\Services\BotLogger;
 use App\Services\TradingSettings;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +31,7 @@ class TradeExecutor
             $execution->status         = 'failed';
             $execution->failure_reason = $failReason;
             $execution->save();
-            Log::warning('TradeExecutor: decision failed checks', ['decision_id' => $decision->id, 'reason' => $failReason]);
+            BotLogger::warning('executor', "Trade rejected: {$failReason}", ['decision_id' => $decision->id], null, null, $execution->id);
             return $execution;
         }
 
@@ -110,6 +111,10 @@ class TradeExecutor
             $execution->status         = 'failed';
             $execution->failure_reason = 'Coinbase API returned null';
             $execution->save();
+            BotLogger::error('executor', "Coinbase returned null for {$decision->asset_symbol} {$decision->action}", [
+                'asset'  => $decision->asset_symbol,
+                'action' => $decision->action,
+            ], null, null, $execution->id);
             $this->notifyN8n($execution);
             return $execution;
         }
@@ -121,15 +126,15 @@ class TradeExecutor
 
         if ($orderId) {
             GetOrderStatusJob::dispatch($execution)->delay(now()->addSeconds(10));
+            $amountEur = number_format($decision->amount_usd / 100, 2);
+            BotLogger::info('executor', "Live order placed: {$decision->asset_symbol} {$decision->action} €{$amountEur}", [
+                'order_id' => $orderId,
+                'asset'    => $decision->asset_symbol,
+                'action'   => $decision->action,
+            ], null, null, $execution->id);
         }
 
         $this->notifyN8n($execution);
-
-        Log::info('TradeExecutor: live order placed', [
-            'decision_id' => $decision->id,
-            'order_id'    => $orderId,
-            'asset'       => $decision->asset_symbol,
-        ]);
 
         return $execution;
     }
@@ -145,13 +150,13 @@ class TradeExecutor
 
         $this->notifyN8n($execution);
 
-        Log::info('TradeExecutor: paper trade recorded', [
-            'decision_id' => $decision->id,
-            'asset'       => $decision->asset_symbol,
-            'action'      => $decision->action,
-            'amount_usd'  => $decision->amount_usd,
-            'price'       => $price,
-        ]);
+        $amountEur = number_format($decision->amount_usd / 100, 2);
+        BotLogger::info('executor', "Paper trade: {$decision->action} {$decision->asset_symbol} €{$amountEur}", [
+            'action'     => $decision->action,
+            'asset'      => $decision->asset_symbol,
+            'amount_eur' => $decision->amount_usd / 100,
+            'price'      => $price,
+        ], null, null, $execution->id);
 
         return $execution;
     }
@@ -186,7 +191,7 @@ class TradeExecutor
                 'timestamp'         => now()->toIso8601String(),
             ]);
         } catch (\Throwable $e) {
-            Log::warning('TradeExecutor: n8n notification failed', ['message' => $e->getMessage()]);
+            BotLogger::warning('executor', "n8n notification failed: {$e->getMessage()}", ['exception' => $e->getMessage()]);
         }
     }
 }

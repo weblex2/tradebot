@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Services\BotLogger;
 use App\Services\TradingSettings;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -35,10 +36,6 @@ class ClaudeAnalysisService
         $relevant = $articles->filter(fn($a) => $this->isRelevant($a));
         $skipped  = $articles->count() - $relevant->count();
 
-        if ($skipped > 0) {
-            Log::info('ClaudeAnalysisService: skipped irrelevant articles', ['count' => $skipped]);
-        }
-
         if ($relevant->isEmpty()) {
             return [];
         }
@@ -50,6 +47,13 @@ class ClaudeAnalysisService
             $batchResults = $this->scoreBatch($batch);
             $results     += $batchResults;
         }
+
+        $signalCount = array_sum(array_map(fn($r) => count($r['signals'] ?? []), $results));
+        BotLogger::info('claude', "Scored {$relevant->count()} articles ({$skipped} skipped), {$signalCount} signals", [
+            'scored'   => $relevant->count(),
+            'skipped'  => $skipped,
+            'signals'  => $signalCount,
+        ]);
 
         return $results;
     }
@@ -103,7 +107,7 @@ SYSTEM;
         if ($data === null) return null;
 
         if (!isset($data['reasoning']) || !isset($data['decisions']) || !is_array($data['decisions'])) {
-            Log::warning('ClaudeAnalysisService: invalid runAnalysis response');
+            BotLogger::warning('claude', 'Claude analysis response missing required keys');
             return null;
         }
 
@@ -193,24 +197,24 @@ SYSTEM;
             ]);
 
             if (!$result->successful()) {
-                Log::error('ClaudeAnalysisService: process failed', [
+                BotLogger::error('claude', "Claude process failed (exit {$result->exitCode()})", [
                     'exit_code' => $result->exitCode(),
-                    'stderr'    => substr($result->errorOutput(), 0, 500),
+                    'stderr'    => substr($result->errorOutput(), 0, 300),
                 ]);
                 return null;
             }
 
             $envelope = json_decode($result->output(), true);
             if (json_last_error() !== JSON_ERROR_NONE || !isset($envelope['result'])) {
-                Log::error('ClaudeAnalysisService: unexpected output envelope', [
-                    'raw' => substr($result->output(), 0, 300),
+                BotLogger::error('claude', 'Claude returned unexpected output envelope', [
+                    'raw' => substr($result->output(), 0, 200),
                 ]);
                 return null;
             }
 
             return $this->parseJson($envelope['result']);
         } catch (\Throwable $e) {
-            Log::error('ClaudeAnalysisService: exception', ['message' => $e->getMessage()]);
+            BotLogger::error('claude', "Claude exception: {$e->getMessage()}", ['exception' => $e->getMessage()]);
             return null;
         }
     }
@@ -223,7 +227,7 @@ SYSTEM;
 
         $decoded = json_decode($clean, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::warning('ClaudeAnalysisService: JSON parse error', ['raw' => substr($raw, 0, 200)]);
+            BotLogger::warning('claude', 'Claude returned unparseable JSON', ['raw' => substr($raw, 0, 200)]);
             return null;
         }
 

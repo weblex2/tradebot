@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 use App\Models\Analysis;
 use App\Models\SentimentSignal;
 use App\Models\TradeDecision;
+use App\Services\BotLogger;
 use App\Services\ClaudeAnalysisService;
 use App\Services\CoinbaseService;
 use App\Services\TradeExecutor;
@@ -43,6 +44,7 @@ class TradeAnalyzeCommand extends Command
 
         $mode = $liveConfirmed ? 'LIVE' : 'PAPER';
         $this->info("trade:analyze starting [{$mode}]");
+        BotLogger::info('scheduler', "Analysis cycle started [{$mode}]", ['mode' => strtolower($mode)]);
 
         // 1. Gather recent signals
         $hours   = (int) $this->option('hours');
@@ -64,6 +66,7 @@ class TradeAnalyzeCommand extends Command
 
         if (empty($signals)) {
             $this->warn("No signals in the last {$hours} hours. Aborting analysis.");
+            BotLogger::info('scheduler', "Analysis skipped: no signals in last {$hours}h", ['hours' => $hours]);
             return self::SUCCESS;
         }
 
@@ -79,6 +82,7 @@ class TradeAnalyzeCommand extends Command
 
         if ($result === null) {
             $this->error('Claude analysis failed.');
+            BotLogger::error('scheduler', 'Analysis failed: Claude returned null');
             return self::FAILURE;
         }
 
@@ -143,6 +147,10 @@ class TradeAnalyzeCommand extends Command
         }
 
         $this->info('trade:analyze complete.');
+        BotLogger::info('scheduler', "Analysis cycle done: " . count($decisions) . " decisions", [
+            'decision_count' => count($decisions),
+            'analysis_id'    => $analysis->id,
+        ], null, $analysis->id);
         return self::SUCCESS;
     }
 

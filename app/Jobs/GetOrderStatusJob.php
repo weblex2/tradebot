@@ -2,6 +2,7 @@
 namespace App\Jobs;
 
 use App\Models\Execution;
+use App\Services\BotLogger;
 use App\Services\CoinbaseService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,7 +29,7 @@ class GetOrderStatusJob implements ShouldQueue
 
         $order = $coinbase->getOrderStatus($this->execution->exchange_order_id);
         if ($order === null) {
-            Log::warning('GetOrderStatusJob: could not fetch order status', ['execution_id' => $this->execution->id]);
+            BotLogger::warning('order_status', 'Cannot fetch order status, will retry', ['exchange_order_id' => $this->execution->exchange_order_id], null, null, $this->execution->id);
             $this->release(60);
             return;
         }
@@ -67,10 +68,10 @@ class GetOrderStatusJob implements ShouldQueue
             'filled_size'        => $filledSize,
         ]);
 
-        Log::info('GetOrderStatusJob: order resolved', [
-            'execution_id' => $this->execution->id,
-            'status'       => $mapped,
-            'fill_price'   => $fillPrice,
-        ]);
+        $priceEur = $fillPrice ? '€' . number_format($fillPrice / 100, 4) : 'unknown';
+        BotLogger::info('order_status', "Order resolved: {$mapped} fill={$priceEur}", [
+            'status'     => $mapped,
+            'fill_price' => $fillPrice,
+        ], null, null, $this->execution->id);
     }
 }

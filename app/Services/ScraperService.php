@@ -3,6 +3,7 @@ namespace App\Services;
 
 use App\Models\Article;
 use App\Models\Source;
+use App\Services\BotLogger;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -20,7 +21,7 @@ class ScraperService
             ])->timeout(15)->get($source->url);
 
             if (!$response->successful()) {
-                Log::warning('ScraperService: failed to fetch source', ['source' => $source->id, 'status' => $response->status()]);
+                BotLogger::warning('scraper', "HTTP {$response->status()} fetching {$source->name}", ['http_status' => $response->status()], $source->id);
                 return 0;
             }
 
@@ -55,7 +56,7 @@ class ScraperService
 
             $source->update(['last_scraped_at' => now()]);
         } catch (\Throwable $e) {
-            Log::error('ScraperService: exception', ['source' => $source->id, 'message' => $e->getMessage()]);
+            BotLogger::error('scraper', "Scraper exception: {$e->getMessage()}", ['exception' => $e->getMessage()], $source->id);
         }
 
         return $articlesAdded;

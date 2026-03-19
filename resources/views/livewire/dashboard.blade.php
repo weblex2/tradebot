@@ -66,7 +66,7 @@
         <div class="glass-card p-5">
             <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Trades Today</div>
             <div class="text-3xl font-bold neon-text-green">{{ $stats['executions_today'] }}</div>
-            <div class="text-xs text-white/30 mt-1">{{ $stats['paper_trades'] }} paper · {{ $stats['live_trades'] }} live</div>
+            <div class="text-xs text-white/30 mt-1">{{ \App\Services\TradingSettings::mode() }} trades</div>
         </div>
 
     </div>
@@ -131,7 +131,14 @@
                             <th>Betrag</th>
                             <th>Kaufpreis</th>
                             <th>Akt. Preis</th>
-                            <th>G/V</th>
+                            <th>
+                                G/V
+                                @if($totalPnl !== null)
+                                    <div class="text-xs font-mono font-bold mt-0.5 {{ $totalPnl >= 0 ? 'neon-text-green' : 'neon-text-red' }}">
+                                        {{ $totalPnl >= 0 ? '+' : '' }}€{{ number_format($totalPnl, 2) }}
+                                    </div>
+                                @endif
+                            </th>
                             <th>Status</th>
                         </tr>
                     </thead>

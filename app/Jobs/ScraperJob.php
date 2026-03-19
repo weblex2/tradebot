@@ -2,6 +2,7 @@
 namespace App\Jobs;
 
 use App\Models\Source;
+use App\Services\BotLogger;
 use App\Services\ScraperService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -22,9 +23,9 @@ class ScraperJob implements ShouldQueue
 
     public function handle(ScraperService $scraper): void
     {
-        Log::info('ScraperJob: starting', ['source_id' => $this->source->id, 'name' => $this->source->name]);
+        BotLogger::info('scraper', "Scraper started for {$this->source->name}", [], $this->source->id);
         $count = $scraper->scrape($this->source);
-        Log::info('ScraperJob: done', ['source_id' => $this->source->id, 'articles_added' => $count]);
+        BotLogger::info('scraper', "Scraper done: {$count} new articles for {$this->source->name}", ['articles_added' => $count], $this->source->id);
     }
 
     public function tags(): array

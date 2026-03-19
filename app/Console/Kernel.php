@@ -21,6 +21,10 @@ class Kernel extends ConsoleKernel
 
         // Prune old articles: weekly
         $schedule->job(new PruneOldArticlesJob())->weekly()->sundays()->at('02:00');
+
+        // Prune old bot logs: weekly (keep 30 days)
+        $schedule->call(fn() => \App\Models\BotLog::where('created_at', '<', now()->subDays(30))->delete())
+            ->weekly()->sundays()->at('03:00');
     }
 
     /**

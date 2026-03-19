@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\BotLogs;
 use App\Livewire\Dashboard as TradebotDashboard;
 use App\Livewire\Sources;
 use App\Livewire\TradeHistory;
@@ -30,4 +31,5 @@ Route::middleware(['auth', 'verified'])->prefix('tradebot')->name('tradebot.')->
     Route::get('/sources', Sources::class)->name('sources');
     Route::get('/trades', TradeHistory::class)->name('trades');
     Route::get('/analysis', AnalysisViewer::class)->name('analysis');
+    Route::get('/logs', BotLogs::class)->name('logs');
 });

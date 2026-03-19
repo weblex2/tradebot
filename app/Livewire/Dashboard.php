@@ -80,7 +80,7 @@ class Dashboard extends Component
                 'articles_today'   => Article::where('created_at', '>=', today())->count(),
                 'signals_6h'       => SentimentSignal::where('created_at', '>=', now()->subHours(6))->count(),
                 'analyses_today'   => Analysis::where('created_at', '>=', today())->count(),
-                'executions_today' => Execution::where('created_at', '>=', today())->count(),
+                'executions_today' => Execution::where('mode', TradingSettings::mode())->where('created_at', '>=', today())->count(),
                 'paper_trades'     => Execution::where('mode', 'paper')->where('status', 'filled')->count(),
                 'live_trades'      => Execution::where('mode', 'live')->where('status', 'filled')->count(),
             ];
@@ -119,6 +119,20 @@ class Dashboard extends Component
             ? []
             : app(CoinbaseService::class)->getPrices($decisionAssets);
 
+        $totalPnl = null;
+        foreach ($recentDecisions as $d) {
+            $exec = $d->execution;
+            $cur  = $currentPrices[$d->asset_symbol] ?? null;
+            if (!$cur || !$exec?->price_at_execution || !$exec?->filled_size) continue;
+            $fillPrice = $exec->price_at_execution / 100;
+            $size      = (float) $exec->filled_size;
+            $fee       = $exec->fee_usd ? $exec->fee_usd / 100 : 0;
+            $pnl       = $exec->action === 'sell'
+                ? ($fillPrice - $cur) * $size - $fee
+                : ($cur - $fillPrice) * $size - $fee;
+            $totalPnl  = ($totalPnl ?? 0) + $pnl;
+        }
+
         $recentSignals = SentimentSignal::with('article.source')
             ->where('created_at', '>=', now()->subHours(24))
             ->latest()
@@ -136,7 +150,7 @@ class Dashboard extends Component
         $autoTrade = TradingSettings::autoTrade();
 
         return view('livewire.dashboard', compact(
-            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices'
+            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices', 'totalPnl'
         ));
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Services\TradingSettings;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
 class TradingModeToggle extends Component
@@ -24,6 +25,7 @@ class TradingModeToggle extends Component
             // Live → Paper: safe, switch immediately
             TradingSettings::setPaper();
             $this->isLive = false;
+            Cache::forget('dashboard.stats');
         }
     }
 
@@ -32,6 +34,7 @@ class TradingModeToggle extends Component
         TradingSettings::setLive();
         $this->isLive    = true;
         $this->showModal = false;
+        Cache::forget('dashboard.stats');
     }
 
     public function cancelModal(): void
