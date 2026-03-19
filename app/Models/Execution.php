@@ -8,7 +8,7 @@ class Execution extends Model
 {
     protected $fillable = [
         'trade_decision_id', 'mode', 'status', 'exchange_order_id',
-        'asset_symbol', 'action', 'amount_usd', 'price_at_execution', 'fee_usd', 'failure_reason',
+        'asset_symbol', 'action', 'amount_usd', 'price_at_execution', 'fee_usd', 'filled_size', 'failure_reason',
     ];
 
     protected $casts = [

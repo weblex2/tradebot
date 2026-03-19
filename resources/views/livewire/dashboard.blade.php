@@ -104,26 +104,51 @@
 
         {{-- Recent Decisions --}}
         <div class="glass-card p-6 lg:col-span-2">
-            <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Recent Decisions</h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Recent Decisions</h2>
+
+                {{-- Auto Trade Toggle --}}
+                <button wire:click="toggleAutoTrade" class="flex items-center gap-2.5 group">
+                    <span class="text-xs font-medium {{ $autoTrade ? 'text-neon-green' : 'text-white/40' }} transition-colors">
+                        Auto Trade
+                    </span>
+                    <div class="relative w-10 h-5 rounded-full transition-colors duration-300 {{ $autoTrade ? 'bg-neon-green/30 border border-neon-green/50' : 'bg-white/10 border border-white/20' }}">
+                        <div class="absolute top-0.5 w-4 h-4 rounded-full shadow transition-all duration-300 {{ $autoTrade ? 'left-5 bg-neon-green' : 'left-0.5 bg-white/40' }}"></div>
+                    </div>
+                </button>
+            </div>
+
             @if($recentDecisions->isEmpty())
                 <div class="text-center py-8 text-white/30 text-sm">No decisions yet. Run <code class="text-neon-blue">php artisan trade:analyze</code></div>
             @else
                 <table class="table-glass">
                     <thead>
                         <tr>
+                            <th>Zeit</th>
                             <th>Asset</th>
                             <th>Action</th>
                             <th>Confidence</th>
-                            <th>Amount</th>
+                            <th>Betrag</th>
+                            <th>Kaufpreis</th>
                             <th>Status</th>
-                            <th>Time</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($recentDecisions as $d)
                             <tr>
+                                <td class="text-xs text-white/40 whitespace-nowrap">
+                                    {{ $d->created_at->format('d.m.Y') }}
+                                    <div class="text-white/25">{{ $d->created_at->format('H:i') }}</div>
+                                </td>
                                 <td class="font-medium text-white">{{ $d->asset_symbol }}</td>
-                                <td><span class="badge-{{ $d->action }}">{{ strtoupper($d->action) }}</span></td>
+                                <td>
+                                    <span class="text-xs px-2 py-0.5 rounded-full
+                                        @if($d->action === 'buy') bg-neon-green/10 text-neon-green border border-neon-green/20
+                                        @elseif($d->action === 'sell') bg-neon-red/10 text-neon-red border border-neon-red/20
+                                        @else bg-white/5 text-white/40 border border-white/10 @endif">
+                                        {{ strtoupper($d->action) }}
+                                    </span>
+                                </td>
                                 <td>
                                     <div class="flex items-center gap-2">
                                         <div class="w-16 h-1 bg-white/10 rounded-full">
@@ -132,16 +157,52 @@
                                         <span class="text-xs font-mono text-white/60">{{ $d->confidence }}%</span>
                                     </div>
                                 </td>
-                                <td class="font-mono text-sm">${{ number_format($d->amountInDollars(), 2) }}</td>
+                                <td class="font-mono text-sm">
+                                    €{{ number_format($d->amountInDollars(), 2) }}
+                                    @if($d->execution?->filled_size)
+                                        <div class="text-xs text-white/50 font-normal">{{ rtrim(rtrim(number_format($d->execution->filled_size, 8), '0'), '.') }} {{ $d->asset_symbol }}</div>
+                                    @endif
+                                    @if($d->execution?->fee_usd)
+                                        <div class="text-xs text-white/30 font-normal">fee €{{ number_format($d->execution->fee_usd / 100, 2) }}</div>
+                                    @endif
+                                </td>
+                                <td class="font-mono text-sm">
+                                    @if($d->execution?->price_at_execution)
+                                        €{{ number_format($d->execution->price_at_execution / 100, 4) }}
+                                    @else
+                                        <span class="text-white/25">—</span>
+                                    @endif
+                                </td>
                                 <td>
                                     @if($d->execution)
-                                        <span class="badge-{{ $d->execution->status }}">{{ $d->execution->status }}</span>
-                                        <span class="badge-{{ $d->execution->mode }} ml-1">{{ $d->execution->mode }}</span>
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="text-xs px-2 py-0.5 rounded-full
+                                            @if($d->execution->status === 'filled') bg-neon-green/10 text-neon-green border border-neon-green/20
+                                            @elseif($d->execution->status === 'failed') bg-neon-red/10 text-neon-red border border-neon-red/20
+                                            @else bg-white/5 text-white/40 border border-white/10 @endif">
+                                            {{ $d->execution->status }}
+                                        </span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full
+                                            @if($d->execution->mode === 'live') bg-yellow-400/10 text-yellow-400 border border-yellow-400/20
+                                            @else bg-neon-blue/10 text-neon-blue border border-neon-blue/20 @endif">
+                                            {{ $d->execution->mode }}
+                                        </span>
+                                        </div>
+                                    @elseif(!$autoTrade)
+                                        <div class="flex items-center gap-2">
+                                            <button wire:click="executeDecision({{ $d->id }})" class="btn-neon-green !py-1 !px-3 !text-xs inline-flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                Execute
+                                            </button>
+                                            <button wire:click="denyDecision({{ $d->id }})" wire:confirm="Delete this decision?" class="btn-neon-red !py-1 !px-3 !text-xs inline-flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                Deny
+                                            </button>
+                                        </div>
                                     @else
                                         <span class="badge-hold">pending</span>
                                     @endif
                                 </td>
-                                <td class="text-xs text-white/30">{{ $d->created_at->diffForHumans() }}</td>
                             </tr>
                         @endforeach
                     </tbody>

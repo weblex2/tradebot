@@ -122,7 +122,7 @@ class CoinbaseService
         if (empty($assetSymbols)) return [];
 
         $query = implode('&', array_map(
-            fn($s) => 'product_ids[]=' . urlencode($s . '-USD'),
+            fn($s) => 'product_ids[]=' . urlencode($s . '-EUR'),
             $assetSymbols
         ));
         $path = '/api/v3/brokerage/products?' . $query;
@@ -133,7 +133,7 @@ class CoinbaseService
         $result = [];
         foreach ($response['products'] ?? [] as $product) {
             $productId = $product['product_id'] ?? '';
-            $symbol    = str_replace('-USD', '', $productId);
+            $symbol    = str_replace('-EUR', '', $productId);
             $price     = (float) ($product['price'] ?? 0);
             if ($price > 0) {
                 $result[$symbol] = $price;
@@ -177,7 +177,7 @@ class CoinbaseService
         $path = '/api/v3/brokerage/orders';
 
         $clientOrderId = 'tradebot-' . uniqid();
-        $productId     = $assetSymbol . '-USD';
+        $productId     = $assetSymbol . '-EUR';
         $quoteSize     = number_format($amountCents / 100, 2, '.', '');
 
         $body = [
@@ -196,10 +196,13 @@ class CoinbaseService
 
         if (isset($response['error'])) {
             Log::error('CoinbaseService::placeMarketOrder error', [
-                'error'  => $response['error'],
-                'asset'  => $assetSymbol,
-                'side'   => $side,
-                'amount' => $amountCents,
+                'error'           => $response['error'],
+                'error_details'   => $response['error_details'] ?? null,
+                'preview_failure' => $response['preview_failure_reason'] ?? null,
+                'asset'           => $assetSymbol,
+                'side'            => $side,
+                'amount'          => $amountCents,
+                'body'            => $body,
             ]);
             return null;
         }

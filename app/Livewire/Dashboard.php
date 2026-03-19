@@ -8,6 +8,7 @@ use App\Models\SentimentSignal;
 use App\Models\Source;
 use App\Models\TradeDecision;
 use App\Services\CoinbaseService;
+use App\Services\TradeExecutor;
 use App\Services\TradingSettings;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
@@ -28,6 +29,30 @@ class Dashboard extends Component
         $value = (float) str_replace(',', '.', $this->minReserveInput);
         TradingSettings::setMinReserve($value);
         Cache::forget('dashboard.portfolio');
+    }
+
+    public function toggleAutoTrade(): void
+    {
+        TradingSettings::setAutoTrade(!TradingSettings::autoTrade());
+    }
+
+    public function executeDecision(int $id): void
+    {
+        $decision = TradeDecision::with('execution')->find($id);
+        if (!$decision || $decision->execution) return;
+
+        $executor = app(TradeExecutor::class);
+        $executor->execute($decision, TradingSettings::isLive());
+        Cache::forget('dashboard.stats');
+        Cache::forget('dashboard.portfolio');
+    }
+
+    public function denyDecision(int $id): void
+    {
+        $decision = TradeDecision::with('execution')->find($id);
+        if (!$decision || $decision->execution) return;
+
+        $decision->delete();
     }
 
     public function render()
@@ -59,7 +84,9 @@ class Dashboard extends Component
             ];
         });
 
+        $currentMode = TradingSettings::mode();
         $recentDecisions = TradeDecision::with(['analysis', 'execution'])
+            ->where('mode', $currentMode)
             ->latest()
             ->limit(10)
             ->get();
@@ -78,8 +105,10 @@ class Dashboard extends Component
                 ->keyBy('asset_symbol');
         });
 
+        $autoTrade = TradingSettings::autoTrade();
+
         return view('livewire.dashboard', compact(
-            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment'
+            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade'
         ));
     }
 }

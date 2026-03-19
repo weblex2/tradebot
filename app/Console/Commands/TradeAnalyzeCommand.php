@@ -7,6 +7,7 @@ use App\Models\TradeDecision;
 use App\Services\ClaudeAnalysisService;
 use App\Services\CoinbaseService;
 use App\Services\TradeExecutor;
+use App\Services\TradingSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -106,10 +107,16 @@ class TradeAnalyzeCommand extends Command
                 continue;
             }
 
+            if (($d['action'] ?? '') === 'hold') {
+                $this->line("  [hold] {$assetSymbol} → skipped");
+                continue;
+            }
+
             $amountCents = (int) round(($d['amount_usd'] ?? 0) * 100);
 
             $decision = TradeDecision::create([
                 'analysis_id'     => $analysis->id,
+                'mode'            => $liveConfirmed ? 'live' : 'paper',
                 'asset_symbol'    => $assetSymbol,
                 'action'          => $d['action'],
                 'confidence'      => (int) ($d['confidence'] ?? 0),
@@ -122,8 +129,12 @@ class TradeAnalyzeCommand extends Command
 
             $this->line("  [{$decision->action}] {$assetSymbol} confidence={$decision->confidence}% amount=\${$decision->amountInDollars()}");
 
-            $execution = $this->executor->execute($decision, $liveConfirmed);
-            $this->line("    → Execution #{$execution->id}: {$execution->status} [{$execution->mode}]");
+            if (TradingSettings::autoTrade()) {
+                $execution = $this->executor->execute($decision, $liveConfirmed);
+                $this->line("    → Execution #{$execution->id}: {$execution->status} [{$execution->mode}]");
+            } else {
+                $this->line("    → Auto-Trade OFF: decision #{$decision->id} saved, awaiting manual approval");
+            }
         }
 
         $this->info('trade:analyze complete.');

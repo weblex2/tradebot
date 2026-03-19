@@ -44,4 +44,17 @@ class TradingSettings
         Setting::set('min_reserve_eur', max(0, $eur));
         Cache::forget('trading.min_reserve');
     }
+
+    public static function autoTrade(): bool
+    {
+        return Cache::remember('trading.auto_trade', 60, function () {
+            return (bool) Setting::get('auto_trade', true);
+        });
+    }
+
+    public static function setAutoTrade(bool $enabled): void
+    {
+        Setting::set('auto_trade', $enabled ? '1' : '0');
+        Cache::forget('trading.auto_trade');
+    }
 }

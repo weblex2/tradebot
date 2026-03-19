@@ -70,8 +70,9 @@
 
     .btn-neon-red {
         @apply px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200
-               bg-neon-red/10 border border-neon-red/30 text-neon-red
-               hover:bg-neon-red/20 hover:border-neon-red/60;
+               bg-neon-red/10 border border-neon-red/40 text-neon-red
+               hover:bg-neon-red/20 hover:border-neon-red/70;
+        text-shadow: 0 0 10px rgba(255, 61, 113, 0.4);
     }
 
     .badge-buy {

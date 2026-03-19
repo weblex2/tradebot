@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class TradeDecision extends Model
 {
     protected $fillable = [
-        'analysis_id', 'asset_symbol', 'action', 'confidence',
+        'analysis_id', 'mode', 'asset_symbol', 'action', 'confidence',
         'amount_usd', 'stop_loss_pct', 'take_profit_pct', 'rationale', 'expires_at',
     ];
 

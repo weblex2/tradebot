@@ -14,7 +14,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // Scraper: runs every minute, ScraperService filters by refresh_minutes internally
-        $schedule->command('scraper:run')->everyMinute()->withoutOverlapping();
+        $schedule->command('scraper:run')->everyFifteenMinutes()->withoutOverlapping();
 
         // Analysis cycle: every 30 minutes
         $schedule->command('trade:analyze')->everyThirtyMinutes()->withoutOverlapping();

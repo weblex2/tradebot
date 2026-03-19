@@ -56,10 +56,15 @@ class GetOrderStatusJob implements ShouldQueue
             ? (int) round((float) $order['total_fees'] * 100)
             : null;
 
+        $filledSize = isset($order['filled_size'])
+            ? (float) $order['filled_size']
+            : null;
+
         $this->execution->update([
             'status'             => $mapped,
             'price_at_execution' => $fillPrice,
             'fee_usd'            => $fee,
+            'filled_size'        => $filledSize,
         ]);
 
         Log::info('GetOrderStatusJob: order resolved', [
