@@ -1,0 +1,111 @@
+{
+  "name": "Tradebot – Trade Execution Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trade-executed",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Trade Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "trade-executed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "filled",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-filled",
+      "name": "Only Filled Trades",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.item.json;\nconst emoji = data.action === 'buy' ? '🟢' : data.action === 'sell' ? '🔴' : '⚪';\nconst modeTag = data.mode === 'live' ? '🔴 LIVE' : '📋 PAPER';\nconst price = data.price_at_execution ? `@ $${data.price_at_execution.toFixed(2)}` : '';\n\nreturn [{\n  json: {\n    ...data,\n    message: `${emoji} *${data.action.toUpperCase()} ${data.asset_symbol}*\\n` +\n             `Amount: $${data.amount_usd.toFixed(2)} ${price}\\n` +\n             `Status: ${data.status} | ${modeTag}\\n` +\n             `ID: #${data.execution_id} | ${data.timestamp}`,\n    is_live: data.mode === 'live'\n  }\n}];"
+      },
+      "id": "format-message",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\": true}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [700, 460]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-notify",
+      "name": "Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [920, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Tradebot Telegram"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Trade Webhook": {
+      "main": [
+        [
+          { "node": "Only Filled Trades", "type": "main", "index": 0 },
+          { "node": "Respond OK", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Only Filled Trades": {
+      "main": [
+        [{ "node": "Format Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [{ "node": "Telegram Notification", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Receives trade execution webhooks from Tradebot Laravel app and sends Telegram notifications for filled trades. Import this workflow into n8n at http://192.168.178.107:5678, set up Telegram Bot credentials, set TELEGRAM_CHAT_ID variable, then activate."
+  }
+}
