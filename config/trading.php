@@ -10,4 +10,7 @@ return [
     'decision_ttl_minutes' => (int) env('DECISION_TTL_MINUTES', 30),
     'allowed_assets'     => explode(',', env('ALLOWED_ASSETS', 'BTC,ETH,SOL,XRP')),
     'n8n_webhook_url'    => env('N8N_WEBHOOK_URL', ''),          // optional trade notification webhook
+    'ntfy_url'           => env('NTFY_URL', ''),                  // ntfy server (e.g. http://192.168.178.108)
+    'ntfy_topic'         => env('NTFY_TOPIC', 'tradebot'),
+    'ntfy_token'         => env('NTFY_TOKEN', ''),                // ntfy access token (optional)
 ];

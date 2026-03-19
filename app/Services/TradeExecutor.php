@@ -33,6 +33,7 @@ class TradeExecutor
             $execution->save();
             BotLogger::warning('executor', "Trade rejected: {$failReason}", ['decision_id' => $decision->id], null, null, $execution->id);
             $this->notifyN8n($execution);
+            $this->notifyNtfy($execution);
             return $execution;
         }
 
@@ -117,6 +118,7 @@ class TradeExecutor
                 'action' => $decision->action,
             ], null, null, $execution->id);
             $this->notifyN8n($execution);
+            $this->notifyNtfy($execution);
             return $execution;
         }
 
@@ -136,6 +138,7 @@ class TradeExecutor
         }
 
         $this->notifyN8n($execution);
+        $this->notifyNtfy($execution);
 
         return $execution;
     }
@@ -150,6 +153,7 @@ class TradeExecutor
         $execution->save();
 
         $this->notifyN8n($execution);
+        $this->notifyNtfy($execution);
 
         $amountEur = number_format($decision->amount_usd / 100, 2);
         BotLogger::info('executor', "Paper trade: {$decision->action} {$decision->asset_symbol} €{$amountEur}", [
@@ -193,6 +197,57 @@ class TradeExecutor
             ]);
         } catch (\Throwable $e) {
             BotLogger::warning('executor', "n8n notification failed: {$e->getMessage()}", ['exception' => $e->getMessage()]);
+        }
+    }
+
+    public function notifyNtfy(Execution $execution): void
+    {
+        $ntfyUrl = config('trading.ntfy_url', '');
+        if (empty($ntfyUrl)) return;
+
+        $topic = config('trading.ntfy_topic', 'tradebot');
+        $token = config('trading.ntfy_token', '');
+
+        $action = strtoupper($execution->action);
+        $asset  = $execution->asset_symbol;
+        $amount = '€' . number_format($execution->amountInDollars(), 2);
+        $mode   = strtoupper($execution->mode);
+
+        [$title, $message, $priority, $tags] = match ($execution->status) {
+            'filled' => [
+                "{$action} {$asset} ausgeführt",
+                "{$mode}: {$action} {$asset} für {$amount}" . ($execution->priceInDollars() ? " @ €" . number_format($execution->priceInDollars(), 2) : ''),
+                'default',
+                $execution->action === 'buy' ? ['chart_with_upwards_trend'] : ['chart_with_downwards_trend'],
+            ],
+            'failed' => [
+                "Trade fehlgeschlagen: {$asset}",
+                "{$mode}: {$action} {$asset} ({$amount}) – " . ($execution->failure_reason ?? 'Unbekannter Fehler'),
+                'high',
+                ['warning'],
+            ],
+            default => [
+                "Trade pending: {$action} {$asset}",
+                "{$mode}: {$action} {$asset} {$amount}",
+                'low',
+                ['hourglass_flowing_sand'],
+            ],
+        };
+
+        try {
+            $request = Http::timeout(5)->withHeaders([
+                'Title'    => $title,
+                'Priority' => $priority,
+                'Tags'     => implode(',', $tags),
+            ]);
+
+            if (!empty($token)) {
+                $request = $request->withToken($token);
+            }
+
+            $request->post("{$ntfyUrl}/{$topic}", $message);
+        } catch (\Throwable $e) {
+            BotLogger::warning('executor', "ntfy notification failed: {$e->getMessage()}", ['exception' => $e->getMessage()]);
         }
     }
 }
