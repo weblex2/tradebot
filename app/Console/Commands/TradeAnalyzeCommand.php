@@ -132,18 +132,24 @@ class TradeAnalyzeCommand extends Command
 
     private function getPortfolio(bool $live): array
     {
-        if (!$live) {
+        $breakdown = $this->coinbase->getPortfolioBreakdown();
+
+        if ($breakdown === null) {
+            $this->warn('Could not fetch real portfolio from Coinbase. Using empty snapshot.');
             return [
-                'mode' => 'paper',
-                'accounts' => [
-                    ['currency' => 'USD', 'available_balance' => ['value' => '10000.00']],
-                    ['currency' => 'BTC', 'available_balance' => ['value' => '0.1']],
-                    ['currency' => 'ETH', 'available_balance' => ['value' => '2.0']],
-                ],
+                'mode'       => $live ? 'live' : 'paper',
+                'cash_eur'   => 0,
+                'total_eur'  => 0,
+                'positions'  => [],
+                'error'      => 'Could not fetch portfolio',
             ];
         }
 
-        $portfolio = $this->coinbase->getPortfolio();
-        return $portfolio ?? ['mode' => 'live', 'accounts' => [], 'error' => 'Could not fetch portfolio'];
+        return [
+            'mode'      => $live ? 'live' : 'paper',
+            'cash_eur'  => $breakdown['cash_eur'],
+            'total_eur' => $breakdown['total_eur'],
+            'positions' => $breakdown['positions'],
+        ];
     }
 }

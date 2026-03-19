@@ -78,19 +78,19 @@ class TradeExecutor
             return null;
         }
 
-        // 6. Portfolio checks (only for live mode or if portfolio data available)
-        if ($this->isLiveMode($liveConfirmed)) {
-            $portfolio = $this->coinbase->getPortfolio();
-            if ($portfolio === null) {
+        // 6. Cash reserve check for buys (live mode only)
+        if ($this->isLiveMode($liveConfirmed) && $decision->action === 'buy') {
+            $breakdown = $this->coinbase->getPortfolioBreakdown();
+            if ($breakdown === null) {
                 return 'Could not retrieve portfolio for pre-execution check';
             }
 
-            $cashBalance = $this->extractCashBalance($portfolio);
-
-            // Min reserve check for buys
+            $cashCents       = (int) round($breakdown['cash_eur'] * 100);
             $minReserveCents = config('trading.min_reserve_usd', 200) * 100;
-            if ($decision->action === 'buy' && ($cashBalance - $decision->amount_usd) < $minReserveCents) {
-                return "Insufficient cash reserve. Available: {$cashBalance} cents, Required reserve: {$minReserveCents} cents";
+
+            if (($cashCents - $decision->amount_usd) < $minReserveCents) {
+                return "Insufficient cash reserve. Available: €" . number_format($breakdown['cash_eur'], 2)
+                    . ", Required reserve: €" . config('trading.min_reserve_usd', 200);
             }
         }
 
@@ -161,17 +161,6 @@ class TradeExecutor
         return $this->isLiveMode($liveConfirmed) ? 'live' : 'paper';
     }
 
-    private function extractCashBalance(array $portfolio): int
-    {
-        $accounts = $portfolio['accounts'] ?? [];
-        foreach ($accounts as $account) {
-            if (($account['currency'] ?? '') === 'USD') {
-                $value = $account['available_balance']['value'] ?? '0';
-                return (int) round((float) $value * 100);
-            }
-        }
-        return 0;
-    }
 
     private function notifyN8n(Execution $execution): void
     {

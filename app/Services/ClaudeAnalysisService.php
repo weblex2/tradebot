@@ -63,6 +63,11 @@ class ClaudeAnalysisService
     {
         $allowedAssets = implode(', ', config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']));
 
+        $cashEur     = (float) ($portfolio['cash_eur'] ?? 0);
+        $maxTradeEur = (float) config('trading.max_trade_usd', 500); // limit applies in EUR
+        $minReserve  = (float) config('trading.min_reserve_usd', 200);
+        $spendable   = max(0, round($cashEur - $minReserve, 2));
+
         $system = <<<SYSTEM
 You are an expert crypto portfolio manager. Based on the provided signals and portfolio state, generate trading decisions.
 Return ONLY valid JSON (no markdown). Allowed assets: {$allowedAssets}.
@@ -73,13 +78,15 @@ Response shape:
 Rules:
 - action: buy | sell | hold
 - confidence: integer 0-100
-- amount_usd: dollars (float), or 0 for hold
+- amount_usd: EUR amount (float) to spend, or 0 for hold
 - stop_loss_pct: float or null
 - take_profit_pct: float or null
 - Capital preservation first. When in doubt, hold.
 - Only recommend trades with confidence >= 60
 - Maximum one decision per asset
 - For hold decisions, set amount_usd to 0
+- Available cash for new buys: €{$cashEur} (keep at least €{$minReserve} as reserve → max spendable: €{$spendable})
+- Never suggest a buy with amount_usd > €{$maxTradeEur} or > €{$spendable}
 SYSTEM;
 
         $user = "## Current Portfolio\n" . json_encode($portfolio, JSON_PRETTY_PRINT)
