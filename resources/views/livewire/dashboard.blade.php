@@ -75,10 +75,17 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
         {{-- Asset Sentiment --}}
-        <div class="glass-card p-6">
-            <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Asset Sentiment (24h)</h2>
-            <div class="space-y-3">
-                @foreach(['BTC', 'ETH', 'SOL', 'XRP'] as $asset)
+        <div class="glass-card p-6 flex flex-col" style="max-height: 420px;">
+            <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4 shrink-0">Asset Sentiment (24h)</h2>
+            @php
+                $portfolioAssets = collect($portfolio['assets'] ?? [])
+                    ->pluck('currency')
+                    ->filter(fn($c) => $c !== 'EUR')
+                    ->unique()
+                    ->values();
+            @endphp
+            <div class="space-y-3 overflow-y-auto pr-1">
+                @forelse($portfolioAssets as $asset)
                     @php
                         $data  = $assetSentiment[$asset] ?? null;
                         $score = $data ? (float) $data->avg_score : 0;
@@ -98,13 +105,15 @@
                         </div>
                         <div class="text-xs text-white/30 mt-0.5">{{ $data?->signal_count ?? 0 }} signals</div>
                     </div>
-                @endforeach
+                @empty
+                    <div class="text-xs text-white/30">Keine Portfolio-Daten verfügbar.</div>
+                @endforelse
             </div>
         </div>
 
         {{-- Recent Decisions --}}
-        <div class="glass-card p-6 lg:col-span-2">
-            <div class="flex items-center justify-between mb-4">
+        <div class="glass-card p-6 lg:col-span-2 flex flex-col" style="max-height: 420px;">
+            <div class="flex items-center justify-between mb-4 shrink-0">
                 <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Recent Decisions</h2>
 
                 {{-- Auto Trade Toggle --}}
@@ -121,6 +130,7 @@
             @if($recentDecisions->isEmpty())
                 <div class="text-center py-8 text-white/30 text-sm">No decisions yet. Run <code class="text-neon-blue">php artisan trade:analyze</code></div>
             @else
+                <div class="overflow-y-auto">
                 <table class="table-glass">
                     <thead>
                         <tr>
@@ -239,6 +249,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             @endif
         </div>
 

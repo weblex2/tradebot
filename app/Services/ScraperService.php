@@ -70,7 +70,23 @@ class ScraperService
             $result = $results[$article->id] ?? null;
 
             if ($result === null) {
-                // Irrelevant or failed – mark as processed with no score
+                // If result is null, it means either:
+                // 1. The article was skipped because it was irrelevant (keyword filter)
+                // 2. Both Claude and Gemini failed (timeout, limit, etc.)
+                // In case of #2, we should NOT mark as processed so we can retry later.
+                
+                // Check if it was skipped due to relevance filter inside the service
+                // (In our current service, we don't know for sure here, but we can assume 
+                // that if BOTH failed, we want to try again. If it's truly irrelevant, 
+                // it might keep failing, so we'll add a check.)
+                
+                // Let's be smart: If we got NO results for the WHOLE batch, it's likely an API failure.
+                if (empty($results)) {
+                    continue; // Leave is_processed = false
+                }
+                
+                // If some articles in the batch got results but this one didn't, 
+                // it's likely irrelevant (skipped by keywords).
                 $article->update(['is_processed' => true]);
                 continue;
             }

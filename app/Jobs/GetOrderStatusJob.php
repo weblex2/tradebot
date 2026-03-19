@@ -4,6 +4,7 @@ namespace App\Jobs;
 use App\Models\Execution;
 use App\Services\BotLogger;
 use App\Services\CoinbaseService;
+use App\Services\TradeExecutor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,7 +22,7 @@ class GetOrderStatusJob implements ShouldQueue
 
     public function __construct(private Execution $execution) {}
 
-    public function handle(CoinbaseService $coinbase): void
+    public function handle(CoinbaseService $coinbase, TradeExecutor $executor): void
     {
         if ($this->execution->status !== 'pending' || empty($this->execution->exchange_order_id)) {
             return;
@@ -73,5 +74,7 @@ class GetOrderStatusJob implements ShouldQueue
             'status'     => $mapped,
             'fill_price' => $fillPrice,
         ], null, null, $this->execution->id);
+
+        $executor->notifyN8n($this->execution->fresh());
     }
 }

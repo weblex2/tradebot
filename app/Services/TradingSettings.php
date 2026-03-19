@@ -57,4 +57,30 @@ class TradingSettings
         Setting::set('auto_trade', $enabled ? '1' : '0');
         Cache::forget('trading.auto_trade');
     }
+
+    public static function primaryModel(): string
+    {
+        return Cache::remember('trading.primary_model', self::CACHE_TTL, function () {
+            return Setting::get('primary_model', 'claude');
+        });
+    }
+
+    public static function setPrimaryModel(string $model): void
+    {
+        Setting::set('primary_model', $model);
+        Cache::forget('trading.primary_model');
+    }
+
+    public static function fallbackModel(): string
+    {
+        return Cache::remember('trading.fallback_model', self::CACHE_TTL, function () {
+            return Setting::get('fallback_model', 'gemini');
+        });
+    }
+
+    public static function setFallbackModel(string $model): void
+    {
+        Setting::set('fallback_model', $model);
+        Cache::forget('trading.fallback_model');
+    }
 }

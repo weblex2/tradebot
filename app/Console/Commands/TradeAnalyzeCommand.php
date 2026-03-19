@@ -76,13 +76,13 @@ class TradeAnalyzeCommand extends Command
         $portfolio = $this->getPortfolio($liveConfirmed);
         $this->info('Portfolio snapshot taken.');
 
-        // 3. Run Claude analysis
-        $this->info('Calling Claude API...');
+        // 3. Run AI analysis
+        $this->info('Calling AI analysis (Claude with Gemini fallback)...');
         $result = $this->claude->runAnalysis($signals, $portfolio);
 
         if ($result === null) {
-            $this->error('Claude analysis failed.');
-            BotLogger::error('scheduler', 'Analysis failed: Claude returned null');
+            $this->error('AI analysis failed (both models returned null).');
+            BotLogger::error('scheduler', 'Analysis failed: Both Claude and Gemini returned null');
             return self::FAILURE;
         }
 
@@ -105,7 +105,7 @@ class TradeAnalyzeCommand extends Command
 
         // 5. Create and execute decisions
         $decisions = $result['decisions'] ?? [];
-        $this->info("Decisions from Claude: " . count($decisions));
+        $this->info("Decisions from AI: " . count($decisions));
 
         foreach ($decisions as $d) {
             $assetSymbol   = strtoupper($d['asset_symbol'] ?? '');

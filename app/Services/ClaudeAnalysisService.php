@@ -4,6 +4,7 @@ namespace App\Services;
 use App\Models\Article;
 use App\Services\BotLogger;
 use App\Services\TradingSettings;
+use App\Services\GeminiAnalysisService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Process;
 class ClaudeAnalysisService
 {
     private const BATCH_SIZE = 10;
+
+    public function __construct(private GeminiAnalysisService $gemini) {}
 
     // Keyword filter – articles without any of these get skipped without an API call
     private const CRYPTO_KEYWORDS = [
@@ -103,11 +106,13 @@ SYSTEM;
         $user = "## Current Portfolio\n" . json_encode($portfolio, JSON_PRETTY_PRINT)
               . "\n\n## Recent Signals (last 6h)\n" . json_encode($signals, JSON_PRETTY_PRINT);
 
-        $data = $this->callClaude($system, $user);
-        if ($data === null) return null;
+        $data = $this->callModel($system, $user);
+        if ($data === null) {
+            return null;
+        }
 
         if (!isset($data['reasoning']) || !isset($data['decisions']) || !is_array($data['decisions'])) {
-            BotLogger::warning('claude', 'Claude analysis response missing required keys');
+            BotLogger::warning('claude', 'Analysis response missing required keys');
             return null;
         }
 
@@ -148,7 +153,7 @@ SYSTEM;
 
         $user = json_encode($items, JSON_UNESCAPED_UNICODE);
 
-        $data = $this->callClaude($system, $user);
+        $data = $this->callModel($system, $user);
         if (!is_array($data)) return [];
 
         // Normalise: handle both indexed array and single object
@@ -178,6 +183,36 @@ SYSTEM;
             }
         }
         return false;
+    }
+
+    private function callModel(string $system, string $user): ?array
+    {
+        $primary  = TradingSettings::primaryModel();
+        $fallback = TradingSettings::fallbackModel();
+
+        $data = $this->callByName($primary, $system, $user);
+
+        if ($data === null && $fallback !== 'none' && $fallback !== $primary) {
+            BotLogger::info($primary, "Primary model ({$primary}) failed, trying fallback ({$fallback})...");
+            $data = $this->callByName($fallback, $system, $user);
+
+            if ($data !== null) {
+                BotLogger::info($fallback, "Fallback ({$fallback}) successful");
+            } else {
+                BotLogger::error($fallback, "Fallback ({$fallback}) also failed");
+            }
+        }
+
+        return $data;
+    }
+
+    private function callByName(string $model, string $system, string $user): ?array
+    {
+        return match ($model) {
+            'claude' => $this->callClaude($system, $user),
+            'gemini' => $this->gemini->callGemini($system, $user),
+            default  => null,
+        };
     }
 
     private function callClaude(string $system, string $user): ?array

@@ -32,6 +32,7 @@ class TradeExecutor
             $execution->failure_reason = $failReason;
             $execution->save();
             BotLogger::warning('executor', "Trade rejected: {$failReason}", ['decision_id' => $decision->id], null, null, $execution->id);
+            $this->notifyN8n($execution);
             return $execution;
         }
 
@@ -172,7 +173,7 @@ class TradeExecutor
     }
 
 
-    private function notifyN8n(Execution $execution): void
+    public function notifyN8n(Execution $execution): void
     {
         $webhookUrl = config('trading.n8n_webhook_url', '');
         if (empty($webhookUrl)) return;
