@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Jobs\GetOrderStatusJob;
 use App\Models\Execution;
 use App\Models\TradeDecision;
 use App\Services\TradingSettings;
@@ -117,6 +118,10 @@ class TradeExecutor
         $execution->exchange_order_id = $orderId;
         $execution->status            = $orderId ? 'pending' : 'failed';
         $execution->save();
+
+        if ($orderId) {
+            GetOrderStatusJob::dispatch($execution)->delay(now()->addSeconds(10));
+        }
 
         $this->notifyN8n($execution);
 

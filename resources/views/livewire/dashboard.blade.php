@@ -130,6 +130,8 @@
                             <th>Confidence</th>
                             <th>Betrag</th>
                             <th>Kaufpreis</th>
+                            <th>Akt. Preis</th>
+                            <th>G/V</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -173,6 +175,34 @@
                                         <span class="text-white/25">—</span>
                                     @endif
                                 </td>
+                                <td class="font-mono text-sm">
+                                    @php $curPrice = $currentPrices[$d->asset_symbol] ?? null; @endphp
+                                    @if($curPrice)
+                                        €{{ number_format($curPrice, 4) }}
+                                    @else
+                                        <span class="text-white/25">—</span>
+                                    @endif
+                                </td>
+                                <td class="font-mono text-sm">
+                                    @php
+                                        $pnl = null;
+                                        if ($curPrice && $d->execution?->price_at_execution && $d->execution?->filled_size) {
+                                            $fillPrice = $d->execution->price_at_execution / 100;
+                                            $size      = (float) $d->execution->filled_size;
+                                            $fee       = $d->execution->fee_usd ? $d->execution->fee_usd / 100 : 0;
+                                            $pnl       = $d->execution->action === 'sell'
+                                                ? ($fillPrice - $curPrice) * $size - $fee
+                                                : ($curPrice - $fillPrice) * $size - $fee;
+                                        }
+                                    @endphp
+                                    @if($pnl !== null)
+                                        <span class="{{ $pnl >= 0 ? 'neon-text-green' : 'neon-text-red' }}">
+                                            {{ $pnl >= 0 ? '+' : '' }}€{{ number_format($pnl, 2) }}
+                                        </span>
+                                    @else
+                                        <span class="text-white/25">—</span>
+                                    @endif
+                                </td>
                                 <td>
                                     @if($d->execution)
                                         <div class="flex items-center gap-1.5 flex-wrap">
@@ -181,11 +211,6 @@
                                             @elseif($d->execution->status === 'failed') bg-neon-red/10 text-neon-red border border-neon-red/20
                                             @else bg-white/5 text-white/40 border border-white/10 @endif">
                                             {{ $d->execution->status }}
-                                        </span>
-                                        <span class="text-xs px-2 py-0.5 rounded-full
-                                            @if($d->execution->mode === 'live') bg-yellow-400/10 text-yellow-400 border border-yellow-400/20
-                                            @else bg-neon-blue/10 text-neon-blue border border-neon-blue/20 @endif">
-                                            {{ $d->execution->mode }}
                                         </span>
                                         </div>
                                     @elseif(!$autoTrade)

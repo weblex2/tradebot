@@ -16,8 +16,8 @@ class Kernel extends ConsoleKernel
         // Scraper: runs every minute, ScraperService filters by refresh_minutes internally
         $schedule->command('scraper:run')->everyFifteenMinutes()->withoutOverlapping();
 
-        // Analysis cycle: every 30 minutes
-        $schedule->command('trade:analyze')->everyThirtyMinutes()->withoutOverlapping();
+        // Analysis cycle: every 15 minutes, offset by 5 min after scraper
+        $schedule->command('trade:analyze')->cron('5,20,35,50 * * * *')->withoutOverlapping();
 
         // Prune old articles: weekly
         $schedule->job(new PruneOldArticlesJob())->weekly()->sundays()->at('02:00');

@@ -33,7 +33,24 @@ class Dashboard extends Component
 
     public function toggleAutoTrade(): void
     {
-        TradingSettings::setAutoTrade(!TradingSettings::autoTrade());
+        $enabling = !TradingSettings::autoTrade();
+        TradingSettings::setAutoTrade($enabling);
+
+        // When enabling: execute all pending (non-expired, no execution) decisions
+        if ($enabling) {
+            $executor    = app(TradeExecutor::class);
+            $isLive      = TradingSettings::isLive();
+            $currentMode = TradingSettings::mode();
+
+            TradeDecision::whereDoesntHave('execution')
+                ->where('mode', $currentMode)
+                ->where('expires_at', '>', now())
+                ->get()
+                ->each(fn($d) => $executor->execute($d, $isLive));
+
+            Cache::forget('dashboard.stats');
+            Cache::forget('dashboard.portfolio');
+        }
     }
 
     public function executeDecision(int $id): void
@@ -91,6 +108,17 @@ class Dashboard extends Component
             ->limit(10)
             ->get();
 
+        $decisionAssets = $recentDecisions
+            ->filter(fn($d) => $d->execution?->filled_size > 0)
+            ->pluck('asset_symbol')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $currentPrices = empty($decisionAssets)
+            ? []
+            : app(CoinbaseService::class)->getPrices($decisionAssets);
+
         $recentSignals = SentimentSignal::with('article.source')
             ->where('created_at', '>=', now()->subHours(24))
             ->latest()
@@ -108,7 +136,7 @@ class Dashboard extends Component
         $autoTrade = TradingSettings::autoTrade();
 
         return view('livewire.dashboard', compact(
-            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade'
+            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices'
         ));
     }
 }

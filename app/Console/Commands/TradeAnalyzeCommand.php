@@ -36,6 +36,11 @@ class TradeAnalyzeCommand extends Command
             $this->warn('⚠ --live requires --confirm-live. Running in paper mode.');
         }
 
+        // When called from scheduler (no flags), respect the TradingSettings mode
+        if (!$this->option('live') && TradingSettings::isLive()) {
+            $liveConfirmed = true;
+        }
+
         $mode = $liveConfirmed ? 'LIVE' : 'PAPER';
         $this->info("trade:analyze starting [{$mode}]");
 

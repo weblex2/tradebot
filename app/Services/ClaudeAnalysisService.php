@@ -17,6 +17,12 @@ class ClaudeAnalysisService
         'crypto', 'blockchain', 'defi', 'stablecoin', 'altcoin', 'coinbase',
         'binance', 'exchange', 'wallet', 'token', 'nft', 'web3', 'mining',
         'halving', 'staking', 'yield', 'ledger', 'satoshi',
+        'dogecoin', 'doge', 'shib', 'shiba', 'cardano', 'ada', 'avalanche',
+        'avax', 'chainlink', 'link', 'polkadot', 'dot', 'litecoin', 'ltc',
+        'uniswap', 'uni', 'cosmos', 'atom', 'filecoin', 'fil', 'algorand',
+        'algo', 'decentraland', 'mana', 'curve', 'crv', 'graph', 'grt',
+        'basic attention', 'bat', 'chiliz', 'chz', 'mina', 'synthetix', 'snx',
+        'stellar', 'xlm', 'tezos', 'xtz', '1inch', 'ape', 'apecoin',
     ];
 
     /**
@@ -42,7 +48,7 @@ class ClaudeAnalysisService
         // Optimisation 1: batch into groups of BATCH_SIZE
         foreach ($relevant->chunk(self::BATCH_SIZE) as $batch) {
             $batchResults = $this->scoreBatch($batch);
-            $results      = array_merge($results, $batchResults);
+            $results     += $batchResults;
         }
 
         return $results;
@@ -125,7 +131,7 @@ Rules:
 - signal_score: float -1.0 to 1.0 per asset mentioned
 - signal_type: regulatory | market_move | adoption | technical | macro | other
 - relevance: float 0.0 to 1.0
-- Only include assets: BTC, ETH, SOL, XRP
+- Only include assets from this list: BTC, ETH, SOL, XRP, DOGE, SHIB, APE, ADA, AVAX, LINK, DOT, LTC, UNI, ATOM, FIL, ALGO, MANA, CRV, GRT, BAT, CHZ, MINA, SNX, XLM, XTZ, 1INCH
 - If no relevant signals, use "signals": []
 SYSTEM;
 
@@ -173,7 +179,10 @@ SYSTEM;
     private function callClaude(string $system, string $user): ?array
     {
         try {
-            $result = Process::timeout(120)->run([
+            $result = Process::timeout(120)->env([
+                'HOME' => '/home/ubuntu',
+                'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            ])->run([
                 'claude',
                 '--print',
                 '--system-prompt', $system,
