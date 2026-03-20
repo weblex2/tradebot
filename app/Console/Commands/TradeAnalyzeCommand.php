@@ -121,7 +121,24 @@ class TradeAnalyzeCommand extends Command
                 continue;
             }
 
-            $amountCents = (int) round(($d['amount_usd'] ?? 0) * 100);
+            $amountCents   = (int) round(($d['amount_usd'] ?? 0) * 100);
+            $minTradeCents = TradingSettings::minTradeUsd() * 100;
+            $maxTradeCents = TradingSettings::maxTradeUsd() * 100;
+
+            if ($amountCents < $minTradeCents) {
+                $this->warn("  [skip] {$assetSymbol}: €" . number_format($amountCents / 100, 2) . " unter Minimum €" . number_format($minTradeCents / 100, 2));
+                BotLogger::info('analyzer', "Decision skipped: {$assetSymbol} amount €" . number_format($amountCents / 100, 2) . " below minimum €" . number_format($minTradeCents / 100, 2), [
+                    'asset'       => $assetSymbol,
+                    'amount_eur'  => $amountCents / 100,
+                    'minimum_eur' => $minTradeCents / 100,
+                ], null, $analysis->id);
+                continue;
+            }
+
+            if ($amountCents > $maxTradeCents) {
+                $this->warn("  [cap] {$assetSymbol}: €" . number_format($amountCents / 100, 2) . " auf Maximum €" . number_format($maxTradeCents / 100, 2) . " begrenzt");
+                $amountCents = $maxTradeCents;
+            }
 
             $decision = TradeDecision::create([
                 'analysis_id'     => $analysis->id,

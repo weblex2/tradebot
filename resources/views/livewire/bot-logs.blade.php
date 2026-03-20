@@ -76,8 +76,8 @@
                             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors {{ $log->context ? 'cursor-pointer' : '' }}"
                             @if($log->context) @click="open = !open" @endif
                         >
-                            <span class="text-xs text-white/25 font-mono whitespace-nowrap w-28 shrink-0" title="{{ $log->created_at->format('Y-m-d H:i:s') }}">
-                                {{ $log->created_at->format('d.m H:i:s') }}
+                            <span class="text-xs text-white/25 font-mono whitespace-nowrap w-28 shrink-0" title="{{ $log->created_at->local()->format('Y-m-d H:i:s') }}">
+                                {{ $log->created_at->local()->format('d.m H:i:s') }}
                             </span>
                             <span class="text-xs px-1.5 py-0.5 rounded border font-mono shrink-0 w-16 text-center {{ $levelColor }}">
                                 {{ $log->level }}

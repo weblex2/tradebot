@@ -81,20 +81,27 @@ class CoinbaseService
         $balances  = $breakdown['portfolio_balances'] ?? [];
         $totalEur  = (float) ($balances['total_balance']['value'] ?? 0);
 
-        $positions = [];
+        // Merge duplicate assets (e.g. SOL in spot + staking wallet)
+        $merged = [];
         foreach ($breakdown['spot_positions'] ?? [] as $pos) {
-            $positions[] = [
-                'currency'   => $pos['asset'] ?? '',
-                'balance'    => (float) ($pos['total_balance_crypto'] ?? 0),
-                'value_eur'  => (float) ($pos['total_balance_fiat'] ?? 0),
-                'allocation' => (float) ($pos['allocation'] ?? 0),
-            ];
+            $currency = $pos['asset'] ?? '';
+            if (!$currency) continue;
+            if (!isset($merged[$currency])) {
+                $merged[$currency] = ['currency' => $currency, 'balance' => 0.0, 'value_eur' => 0.0, 'allocation' => 0.0];
+            }
+            $merged[$currency]['balance']    += (float) ($pos['total_balance_crypto'] ?? 0);
+            $merged[$currency]['value_eur']  += (float) ($pos['total_balance_fiat'] ?? 0);
+            $merged[$currency]['allocation'] += (float) ($pos['allocation'] ?? 0);
         }
+
+        $positions = array_values($merged);
 
         // Sort by EUR value descending
         usort($positions, fn($a, $b) => $b['value_eur'] <=> $a['value_eur']);
 
-        $cashEur = (float) ($balances['total_cash_equivalent_balance']['value'] ?? 0);
+        // Use actual EUR spot balance – NOT total_cash_equivalent which includes DAI/EURC
+        // that Coinbase won't accept for market orders
+        $cashEur = (float) ($merged['EUR']['balance'] ?? 0);
 
         return [
             'total_eur' => $totalEur,
@@ -122,21 +129,23 @@ class CoinbaseService
         if (empty($assetSymbols)) return [];
 
         $query = implode('&', array_map(
-            fn($s) => 'product_ids[]=' . urlencode($s . '-EUR'),
+            fn($s) => 'product_ids=' . urlencode($s . '-EUR'),
             $assetSymbols
         ));
-        $path = '/api/v3/brokerage/products?' . $query;
+        $path = '/api/v3/brokerage/best_bid_ask?' . $query;
 
         $response = $this->request('GET', $path);
         if ($response === null || isset($response['error'])) return [];
 
         $result = [];
-        foreach ($response['products'] ?? [] as $product) {
-            $productId = $product['product_id'] ?? '';
+        foreach ($response['pricebooks'] ?? [] as $book) {
+            $productId = $book['product_id'] ?? '';
             $symbol    = str_replace('-EUR', '', $productId);
-            $price     = (float) ($product['price'] ?? 0);
-            if ($price > 0) {
-                $result[$symbol] = $price;
+            // Mid-price between best bid and ask
+            $bid = (float) ($book['bids'][0]['price'] ?? 0);
+            $ask = (float) ($book['asks'][0]['price'] ?? 0);
+            if ($bid > 0 && $ask > 0) {
+                $result[$symbol] = ($bid + $ask) / 2;
             }
         }
 
@@ -169,6 +178,35 @@ class CoinbaseService
     }
 
     /**
+     * Fetch price and base_increment for a single asset.
+     * Returns ['price' => float, 'base_increment' => string] or null.
+     */
+    public function getProductInfo(string $assetSymbol): ?array
+    {
+        $path     = '/api/v3/brokerage/products/' . urlencode($assetSymbol . '-EUR');
+        $response = $this->request('GET', $path);
+        if ($response === null || isset($response['error'])) return null;
+
+        $price = (float) ($response['price'] ?? 0);
+        if ($price <= 0) return null;
+
+        return [
+            'price'          => $price,
+            'base_increment' => $response['base_increment'] ?? '0.00000001',
+        ];
+    }
+
+    /**
+     * Derive number of decimal places from a Coinbase base_increment string.
+     * e.g. "1" → 0, "0.01" → 2, "0.00000001" → 8
+     */
+    private function decimalPlacesFromIncrement(string $increment): int
+    {
+        if (!str_contains($increment, '.')) return 0;
+        return strlen(rtrim(explode('.', $increment)[1], '0') ?: '0');
+    }
+
+    /**
      * Place a market IOC order.
      * Returns the order data array or null on failure.
      */
@@ -178,16 +216,29 @@ class CoinbaseService
 
         $clientOrderId = 'tradebot-' . uniqid();
         $productId     = $assetSymbol . '-EUR';
-        $quoteSize     = number_format($amountCents / 100, 2, '.', '');
+
+        // Coinbase requires:
+        //   BUY  → quote_size  (EUR amount to spend)
+        //   SELL → base_size   (asset quantity to sell)
+        if (strtoupper($side) === 'SELL') {
+            $product = $this->getProductInfo($assetSymbol);
+            if (!$product || ($product['price'] ?? 0) <= 0) {
+                Log::error('CoinbaseService::placeMarketOrder: could not fetch product info for sell', ['asset' => $assetSymbol]);
+                return null;
+            }
+            $decimals  = $this->decimalPlacesFromIncrement($product['base_increment'] ?? '0.00000001');
+            $baseSize  = number_format(($amountCents / 100) / $product['price'], $decimals, '.', '');
+            $orderSize = ['base_size' => $baseSize];
+        } else {
+            $orderSize = ['quote_size' => number_format($amountCents / 100, 2, '.', '')];
+        }
 
         $body = [
             'client_order_id' => $clientOrderId,
             'product_id'      => $productId,
             'side'            => strtoupper($side),
             'order_configuration' => [
-                'market_market_ioc' => [
-                    'quote_size' => $quoteSize,
-                ],
+                'market_market_ioc' => $orderSize,
             ],
         ];
 

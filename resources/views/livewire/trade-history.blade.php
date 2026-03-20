@@ -64,19 +64,26 @@
             <tbody>
                 @forelse($executions as $exec)
                 <tr>
-                    <td class="font-mono text-white/30 text-xs">{{ $exec->id }}</td>
+                    <td class="font-mono text-white/30 text-xs">#{{ $exec->id }}</td>
                     <td class="font-bold text-white">{{ $exec->asset_symbol }}</td>
                     <td><span class="badge-{{ $exec->action }}">{{ strtoupper($exec->action) }}</span></td>
                     <td><span class="badge-{{ $exec->mode }}">{{ $exec->mode }}</span></td>
-                    <td><span class="badge-{{ $exec->status }}">{{ $exec->status }}</span></td>
-                    <td class="font-mono">${{ number_format($exec->amountInDollars(), 2) }}</td>
+                    <td>
+                        <span class="badge-{{ $exec->status }}">{{ $exec->status }}</span>
+                        @if($exec->status === 'failed' && $exec->failure_reason)
+                            <div class="text-xs text-neon-red/70 mt-1 max-w-[180px] truncate" title="{{ $exec->failure_reason }}">
+                                {{ $exec->failure_reason }}
+                            </div>
+                        @endif
+                    </td>
+                    <td class="font-mono">€{{ number_format($exec->amountInDollars(), 2) }}</td>
                     <td class="font-mono text-white/50">
-                        {{ $exec->priceInDollars() ? '$'.number_format($exec->priceInDollars(), 2) : '–' }}
+                        {{ $exec->priceInDollars() ? '€'.number_format($exec->priceInDollars(), 2) : '–' }}
                     </td>
                     <td class="font-mono text-white/40">
-                        {{ $exec->feeInDollars() ? '$'.number_format($exec->feeInDollars(), 4) : '–' }}
+                        {{ $exec->feeInDollars() ? '€'.number_format($exec->feeInDollars(), 4) : '–' }}
                     </td>
-                    <td class="text-xs text-white/30">{{ $exec->created_at->format('d.m H:i') }}</td>
+                    <td class="text-xs text-white/30">{{ $exec->created_at->local()->format('d.m H:i') }}</td>
                 </tr>
                 @empty
                 <tr>

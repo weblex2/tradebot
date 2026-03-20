@@ -218,7 +218,7 @@ SYSTEM;
     private function callClaude(string $system, string $user): ?array
     {
         try {
-            $result = Process::timeout(120)->env([
+            $result = Process::timeout(300)->env([
                 'HOME' => '/home/ubuntu',
                 'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
             ])->run([

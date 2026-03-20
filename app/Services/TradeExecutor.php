@@ -25,30 +25,53 @@ class TradeExecutor
             'status'            => 'pending',
         ]);
 
-        // Pre-execution checks
-        $failReason = $this->runChecks($decision, $liveConfirmed);
-        if ($failReason !== null) {
+        try {
+            // Pre-execution checks
+            $failReason = $this->runChecks($decision, $liveConfirmed);
+            if ($failReason !== null) {
+                $execution->status         = 'failed';
+                $execution->failure_reason = $failReason;
+                $execution->save();
+                BotLogger::warning('executor', "Trade rejected: {$failReason}", [
+                    'decision_id' => $decision->id,
+                    'asset'       => $decision->asset_symbol,
+                    'action'      => $decision->action,
+                    'confidence'  => $decision->confidence,
+                    'amount_eur'  => $decision->amount_usd / 100,
+                ], null, null, $execution->id);
+                $this->notifyN8n($execution);
+                $this->notifyNtfy($execution);
+                return $execution;
+            }
+
+            // Hold actions → just record
+            if ($decision->action === 'hold') {
+                $execution->status = 'filled';
+                $execution->save();
+                return $execution;
+            }
+
+            if ($this->isLiveMode($liveConfirmed)) {
+                return $this->executeLive($execution, $decision);
+            }
+
+            return $this->executePaper($execution, $decision);
+
+        } catch (\Throwable $e) {
             $execution->status         = 'failed';
-            $execution->failure_reason = $failReason;
+            $execution->failure_reason = 'Exception: ' . $e->getMessage();
             $execution->save();
-            BotLogger::warning('executor', "Trade rejected: {$failReason}", ['decision_id' => $decision->id], null, null, $execution->id);
+            BotLogger::error('executor', "Unexpected exception during trade execution: {$e->getMessage()}", [
+                'decision_id' => $decision->id,
+                'asset'       => $decision->asset_symbol,
+                'action'      => $decision->action,
+                'exception'   => $e->getMessage(),
+                'file'        => $e->getFile() . ':' . $e->getLine(),
+            ], null, null, $execution->id);
             $this->notifyN8n($execution);
             $this->notifyNtfy($execution);
             return $execution;
         }
-
-        // Hold actions → just record
-        if ($decision->action === 'hold') {
-            $execution->status = 'filled';
-            $execution->save();
-            return $execution;
-        }
-
-        if ($this->isLiveMode($liveConfirmed)) {
-            return $this->executeLive($execution, $decision);
-        }
-
-        return $this->executePaper($execution, $decision);
     }
 
     private function runChecks(TradeDecision $decision, bool $liveConfirmed): ?string
@@ -59,15 +82,20 @@ class TradeExecutor
         }
 
         // 2. Confidence threshold
-        $minConfidence = config('trading.min_confidence', 60);
+        $minConfidence = TradingSettings::minConfidence();
         if ($decision->confidence < $minConfidence) {
             return "Confidence {$decision->confidence} below minimum {$minConfidence}";
         }
 
-        // 3. Amount limit
-        $maxTradeUsd = config('trading.max_trade_usd', 500) * 100; // convert to cents
-        if ($decision->amount_usd > $maxTradeUsd) {
-            return "Amount {$decision->amount_usd} cents exceeds max {$maxTradeUsd} cents";
+        // 3. Amount within bounds
+        $minTradeCents = TradingSettings::minTradeUsd() * 100;
+        if ($decision->amount_usd < $minTradeCents) {
+            return "Amount €" . number_format($decision->amount_usd / 100, 2) . " is below minimum €" . number_format($minTradeCents / 100, 2);
+        }
+
+        $maxTradeCents = TradingSettings::maxTradeUsd() * 100;
+        if ($decision->amount_usd > $maxTradeCents) {
+            return "Amount €" . number_format($decision->amount_usd / 100, 2) . " exceeds maximum €" . number_format($maxTradeCents / 100, 2);
         }
 
         // 4. Allowed asset guard
@@ -124,16 +152,27 @@ class TradeExecutor
 
         $orderId = $order['order_id'] ?? null;
         $execution->exchange_order_id = $orderId;
-        $execution->status            = $orderId ? 'pending' : 'failed';
-        $execution->save();
 
         if ($orderId) {
+            $execution->status = 'pending';
+            $execution->save();
             GetOrderStatusJob::dispatch($execution)->delay(now()->addSeconds(10));
             $amountEur = number_format($decision->amount_usd / 100, 2);
             BotLogger::info('executor', "Live order placed: {$decision->asset_symbol} {$decision->action} €{$amountEur}", [
                 'order_id' => $orderId,
                 'asset'    => $decision->asset_symbol,
                 'action'   => $decision->action,
+            ], null, null, $execution->id);
+        } else {
+            $errorCode    = $order['error'] ?? $order['error_response']['error'] ?? 'UNKNOWN';
+            $errorMessage = $order['error_response']['message'] ?? $order['preview_failure_reason'] ?? 'No order_id returned';
+            $execution->status         = 'failed';
+            $execution->failure_reason = "Coinbase order failed: {$errorCode} – {$errorMessage}";
+            $execution->save();
+            BotLogger::error('executor', "Coinbase order failed: {$errorCode} – {$errorMessage}", [
+                'asset'    => $decision->asset_symbol,
+                'action'   => $decision->action,
+                'response' => $order,
             ], null, null, $execution->id);
         }
 

@@ -10,6 +10,11 @@ class Settings extends Component
 {
     public string $primaryModel  = 'claude';
     public string $fallbackModel = 'gemini';
+    public string $timezone      = 'UTC';
+    public int    $minTradeUsd   = 1;
+    public int    $maxTradeUsd   = 500;
+    public int    $minConfidence = 60;
+    public int    $minReserveUsd = 200;
 
     public const MODEL_OPTIONS = [
         'claude' => 'Claude (Sonnet)',
@@ -22,10 +27,49 @@ class Settings extends Component
         'none'   => 'Kein Fallback',
     ];
 
+    // Grouped timezone list: ['Group' => ['tz_identifier' => 'Display Label']]
+    public const TIMEZONE_GROUPS = [
+        'Europa' => [
+            'Europe/Berlin'     => 'Deutschland (Berlin)',
+            'Europe/Vienna'     => 'Österreich (Wien)',
+            'Europe/Zurich'     => 'Schweiz (Zürich)',
+            'Europe/London'     => 'Großbritannien (London)',
+            'Europe/Paris'      => 'Frankreich (Paris)',
+            'Europe/Amsterdam'  => 'Niederlande (Amsterdam)',
+            'Europe/Madrid'     => 'Spanien (Madrid)',
+            'Europe/Rome'       => 'Italien (Rom)',
+            'Europe/Warsaw'     => 'Polen (Warschau)',
+            'Europe/Stockholm'  => 'Schweden (Stockholm)',
+            'Europe/Moscow'     => 'Russland (Moskau)',
+        ],
+        'Amerika' => [
+            'America/New_York'    => 'USA Eastern (New York)',
+            'America/Chicago'     => 'USA Central (Chicago)',
+            'America/Denver'      => 'USA Mountain (Denver)',
+            'America/Los_Angeles' => 'USA Pacific (Los Angeles)',
+            'America/Sao_Paulo'   => 'Brasilien (São Paulo)',
+        ],
+        'Asien / Pazifik' => [
+            'Asia/Tokyo'      => 'Japan (Tokio)',
+            'Asia/Shanghai'   => 'China (Shanghai)',
+            'Asia/Singapore'  => 'Singapur',
+            'Asia/Dubai'      => 'Dubai (VAE)',
+            'Australia/Sydney'=> 'Australien (Sydney)',
+        ],
+        'Andere' => [
+            'UTC' => 'UTC (Koordinierte Weltzeit)',
+        ],
+    ];
+
     public function mount(): void
     {
         $this->primaryModel  = TradingSettings::primaryModel();
         $this->fallbackModel = TradingSettings::fallbackModel();
+        $this->timezone      = TradingSettings::timezone();
+        $this->minTradeUsd   = TradingSettings::minTradeUsd();
+        $this->maxTradeUsd   = TradingSettings::maxTradeUsd();
+        $this->minConfidence = TradingSettings::minConfidence();
+        $this->minReserveUsd = (int) TradingSettings::minReserve();
     }
 
     public function saveModels(): void
@@ -41,11 +85,50 @@ class Settings extends Component
         $this->dispatch('saved');
     }
 
+    public function saveRiskParams(): void
+    {
+        $this->validate([
+            'minTradeUsd'   => ['required', 'integer', 'min:1', 'max:10000'],
+            'maxTradeUsd'   => ['required', 'integer', 'min:1', 'max:100000'],
+            'minConfidence' => ['required', 'integer', 'min:0', 'max:100'],
+            'minReserveUsd' => ['required', 'integer', 'min:0'],
+        ]);
+
+        if ($this->minTradeUsd > $this->maxTradeUsd) {
+            $this->addError('minTradeUsd', 'Minimum muss kleiner als Maximum sein.');
+            return;
+        }
+
+        TradingSettings::setMinTradeUsd($this->minTradeUsd);
+        TradingSettings::setMaxTradeUsd($this->maxTradeUsd);
+        TradingSettings::setMinConfidence($this->minConfidence);
+        TradingSettings::setMinReserve($this->minReserveUsd);
+
+        $this->dispatch('saved');
+    }
+
+    public function saveTimezone(): void
+    {
+        $allTimezones = collect(self::TIMEZONE_GROUPS)->flatten()->keys()->all();
+
+        $this->validate([
+            'timezone' => ['required', 'string', 'in:' . implode(',', $allTimezones)],
+        ]);
+
+        TradingSettings::setTimezone($this->timezone);
+
+        // Apply immediately for the current request so the flash message is correct
+        date_default_timezone_set($this->timezone);
+
+        $this->dispatch('saved');
+    }
+
     public function render()
     {
         return view('livewire.settings', [
             'modelOptions'    => self::MODEL_OPTIONS,
             'fallbackOptions' => self::FALLBACK_OPTIONS,
+            'timezoneGroups'  => self::TIMEZONE_GROUPS,
         ]);
     }
 }

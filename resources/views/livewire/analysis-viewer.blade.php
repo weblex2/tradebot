@@ -48,7 +48,7 @@
                     </svg>
                 </button>
                 <h3 class="text-sm font-semibold text-white flex-1">Analysis #{{ $selected->id }}</h3>
-                <span class="text-xs text-white/30">{{ $selected->created_at->format('d.m.Y H:i:s') }}</span>
+                <span class="text-xs text-white/30">{{ $selected->created_at->local()->format('d.m.Y H:i:s') }}</span>
             </div>
 
             {{-- Reasoning --}}

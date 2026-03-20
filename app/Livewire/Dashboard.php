@@ -86,7 +86,7 @@ class Dashboard extends Component
             ];
         });
 
-        $portfolio = Cache::remember('dashboard.portfolio', 60, function () {
+        $portfolio = Cache::remember('dashboard.portfolio', 30, function () {
             $coinbase   = app(CoinbaseService::class);
             $breakdown  = $coinbase->getPortfolioBreakdown();
 
@@ -109,7 +109,6 @@ class Dashboard extends Component
             ->get();
 
         $decisionAssets = $recentDecisions
-            ->filter(fn($d) => $d->execution?->filled_size > 0)
             ->pluck('asset_symbol')
             ->unique()
             ->values()

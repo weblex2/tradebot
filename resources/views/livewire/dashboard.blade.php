@@ -148,20 +148,14 @@
                     <thead>
                         <tr>
                             <th>Zeit</th>
+                            <th class="text-white/30">ID</th>
                             <th>Asset</th>
                             <th>Action</th>
                             <th class="hidden md:table-cell">Confidence</th>
                             <th>Betrag</th>
                             <th class="hidden lg:table-cell">Kaufpreis</th>
                             <th class="hidden lg:table-cell">Akt. Preis</th>
-                            <th>
-                                G/V
-                                @if($totalPnl !== null)
-                                    <div class="text-xs font-mono font-bold mt-0.5 {{ $totalPnl >= 0 ? 'neon-text-green' : 'neon-text-red' }}">
-                                        {{ $totalPnl >= 0 ? '+' : '' }}€{{ number_format($totalPnl, 2) }}
-                                    </div>
-                                @endif
-                            </th>
+                            <th>G/V</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -169,8 +163,14 @@
                         @foreach($recentDecisions as $d)
                             <tr>
                                 <td class="text-xs text-white/40 whitespace-nowrap">
-                                    {{ $d->created_at->format('d.m.') }}
-                                    <div class="text-white/25">{{ $d->created_at->format('H:i') }}</div>
+                                    {{ $d->created_at->local()->format('d.m.') }}
+                                    <div class="text-white/25">{{ $d->created_at->local()->format('H:i') }}</div>
+                                </td>
+                                <td class="font-mono text-white/25 text-xs whitespace-nowrap">
+                                    #{{ $d->id }}
+                                    @if($d->execution)
+                                        <div class="text-white/20">#{{ $d->execution->id }}</div>
+                                    @endif
                                 </td>
                                 <td class="font-medium text-white">{{ $d->asset_symbol }}</td>
                                 <td>
@@ -275,28 +275,65 @@
         @if($recentSignals->isEmpty())
             <div class="text-center py-6 text-white/30 text-sm">No signals yet. Run <code class="text-neon-blue">php artisan scraper:run</code></div>
         @else
-            <div class="space-y-2">
-                @foreach($recentSignals as $signal)
-                    @php $score = (float) $signal->signal_score; @endphp
-                    <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
-                        <span class="text-sm font-bold w-10 shrink-0 font-mono
-                            @if($score > 0.1) neon-text-green @elseif($score < -0.1) neon-text-red @else text-white/50 @endif">
-                            {{ $signal->asset_symbol }}
-                        </span>
-                        <span class="text-xs px-2 py-0.5 rounded-full shrink-0 hidden sm:inline
-                            @if($score > 0.1) bg-neon-green/10 text-neon-green border border-neon-green/20
-                            @elseif($score < -0.1) bg-neon-red/10 text-neon-red border border-neon-red/20
-                            @else bg-white/5 text-white/40 border border-white/10 @endif">
-                            {{ $signal->signal_type }}
-                        </span>
-                        <span class="text-xs font-mono font-semibold w-12 shrink-0
-                            @if($score > 0.1) text-neon-green @elseif($score < -0.1) text-neon-red @else text-white/40 @endif">
-                            {{ $score >= 0 ? '+' : '' }}{{ number_format($score, 3) }}
-                        </span>
-                        <span class="flex-1 text-xs text-white/40 truncate min-w-0">{{ $signal->article?->title }}</span>
-                        <span class="text-xs text-white/25 shrink-0 hidden sm:inline">{{ $signal->created_at->diffForHumans() }}</span>
-                    </div>
-                @endforeach
+            <div class="overflow-x-auto">
+            <table class="w-full table-fixed text-sm min-w-[360px]">
+                <colgroup>
+                    <col class="w-14">
+                    <col class="hidden sm:table-column w-32">
+                    <col class="w-16">
+                    <col>{{-- Artikel: füllt den Rest --}}
+                    <col class="hidden md:table-column w-28">{{-- Source: ab md --}}
+                    <col class="w-20">
+                </colgroup>
+                <thead>
+                    <tr class="border-b border-white/[0.08]">
+                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Asset</th>
+                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium hidden sm:table-cell">Typ</th>
+                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Score</th>
+                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Artikel</th>
+                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium hidden md:table-cell">Source</th>
+                        <th class="pb-2 text-right text-xs text-white/30 font-medium">Zeit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($recentSignals as $signal)
+                        @php $score = (float) $signal->signal_score; @endphp
+                        <tr class="border-b border-white/[0.08] hover:bg-white/[0.04] transition-colors">
+                            {{-- Asset --}}
+                            <td class="py-2.5 pr-3 font-bold font-mono text-xs
+                                @if($score > 0.1) neon-text-green @elseif($score < -0.1) neon-text-red @else text-white/50 @endif">
+                                {{ $signal->asset_symbol }}
+                            </td>
+                            {{-- Typ (ab sm) --}}
+                            <td class="py-2.5 pr-3">
+                                <span class="text-xs px-2 py-0.5 rounded-full
+                                    @if($score > 0.1) bg-neon-green/10 text-neon-green border border-neon-green/20
+                                    @elseif($score < -0.1) bg-neon-red/10 text-neon-red border border-neon-red/20
+                                    @else bg-white/5 text-white/40 border border-white/10 @endif">
+                                    {{ $signal->signal_type }}
+                                </span>
+                            </td>
+                            {{-- Score --}}
+                            <td class="py-2.5 pr-3 font-mono font-semibold text-xs
+                                @if($score > 0.1) text-neon-green @elseif($score < -0.1) text-neon-red @else text-white/40 @endif">
+                                {{ $score >= 0 ? '+' : '' }}{{ number_format($score, 3) }}
+                            </td>
+                            {{-- Artikel (immer sichtbar, truncate) --}}
+                            <td class="py-2.5 pr-3 text-xs text-white/40 truncate overflow-hidden max-w-0">
+                                {{ $signal->article?->title }}
+                            </td>
+                            {{-- Source (ab md) --}}
+                            <td class="py-2.5 pr-3 hidden md:table-cell text-xs text-white/30 truncate overflow-hidden max-w-0">
+                                {{ $signal->article?->source?->name }}
+                            </td>
+                            {{-- Zeit --}}
+                            <td class="py-2.5 text-xs text-white/25 text-right whitespace-nowrap">
+                                {{ $signal->created_at->diffForHumans() }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
             </div>
         @endif
     </div>

@@ -167,4 +167,85 @@
         </div>
 
     </div>
+
+    {{-- Risk Parameters --}}
+    <div class="mt-6 glass-card p-6 max-w-lg">
+        <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-1">Risk-Parameter</h2>
+        <p class="text-xs text-white/30 mb-5">Grenzen für Trade-Ausführungen. Trades außerhalb dieser Grenzen werden automatisch abgelehnt.</p>
+
+        <form wire:submit="saveRiskParams" class="space-y-4">
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-white/50 mb-1.5">Min. Trade (€)</label>
+                    <input type="number" wire:model="minTradeUsd" min="1"
+                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-green/50">
+                    @error('minTradeUsd') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs text-white/50 mb-1.5">Max. Trade (€)</label>
+                    <input type="number" wire:model="maxTradeUsd" min="1"
+                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-green/50">
+                    @error('maxTradeUsd') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs text-white/50 mb-1.5">Min. Confidence (%)</label>
+                    <input type="number" wire:model="minConfidence" min="0" max="100"
+                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-blue/50">
+                    @error('minConfidence') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs text-white/50 mb-1.5">Cash-Reserve (€)</label>
+                    <input type="number" wire:model="minReserveUsd" min="0"
+                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-blue/50">
+                    @error('minReserveUsd') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+            </div>
+
+            <div class="px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-white/30 space-y-1">
+                <div>Trades unter <span class="text-white/60">€{{ $minTradeUsd }}</span> oder über <span class="text-white/60">€{{ $maxTradeUsd }}</span> werden abgelehnt.</div>
+                <div>Confidence unter <span class="text-white/60">{{ $minConfidence }}%</span> → kein Trade.</div>
+                <div>Mindestens <span class="text-white/60">€{{ $minReserveUsd }}</span> Cash bleibt immer unberührt.</div>
+            </div>
+
+            <button type="submit" class="btn-neon-green w-full">Speichern</button>
+        </form>
+    </div>
+
+    {{-- Timezone / Country --}}
+    <div class="mt-6 glass-card p-6 max-w-lg">
+        <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-1">Zeitzone / Land</h2>
+        <p class="text-xs text-white/30 mb-5">Alle Datums- und Uhrzeitangaben im Frontend werden in dieser Zeitzone angezeigt.</p>
+
+        <form wire:submit="saveTimezone" class="space-y-4">
+            <div>
+                <label class="block text-xs text-white/50 mb-2">Zeitzone</label>
+                <select
+                    wire:model="timezone"
+                    class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-blue/50"
+                    style="background-color:#0f1628; color:#ffffff;"
+                >
+                    @foreach($timezoneGroups as $group => $zones)
+                        <optgroup label="{{ $group }}">
+                            @foreach($zones as $tz => $label)
+                                <option value="{{ $tz }}" @selected($timezone === $tz)>{{ $label }}</option>
+                            @endforeach
+                        </optgroup>
+                    @endforeach
+                </select>
+                @error('timezone') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="text-xs text-white/30">
+                    Aktuelle Zeit:
+                    <span class="text-white/60 font-mono">{{ now()->local()->format('d.m.Y H:i:s') }}</span>
+                </div>
+                <button type="submit" class="btn-neon-green px-6">
+                    Speichern
+                </button>
+            </div>
+        </form>
+    </div>
+
 </div>

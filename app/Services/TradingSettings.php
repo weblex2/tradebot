@@ -83,4 +83,50 @@ class TradingSettings
         Setting::set('fallback_model', $model);
         Cache::forget('trading.fallback_model');
     }
+
+    public static function timezone(): string
+    {
+        return Cache::remember('trading.timezone', self::CACHE_TTL, function () {
+            return Setting::get('timezone', 'UTC');
+        });
+    }
+
+    public static function setTimezone(string $tz): void
+    {
+        Setting::set('timezone', $tz);
+        Cache::forget('trading.timezone');
+    }
+
+    public static function minTradeUsd(): int
+    {
+        return (int) Setting::get('min_trade_usd', config('trading.min_trade_usd', 1));
+    }
+
+    public static function setMinTradeUsd(int $usd): void
+    {
+        Setting::set('min_trade_usd', max(1, $usd));
+        Cache::forget('trading.min_trade_usd');
+    }
+
+    public static function maxTradeUsd(): int
+    {
+        return (int) Setting::get('max_trade_usd', config('trading.max_trade_usd', 500));
+    }
+
+    public static function setMaxTradeUsd(int $usd): void
+    {
+        Setting::set('max_trade_usd', max(1, $usd));
+        Cache::forget('trading.max_trade_usd');
+    }
+
+    public static function minConfidence(): int
+    {
+        return (int) Setting::get('min_confidence', config('trading.min_confidence', 60));
+    }
+
+    public static function setMinConfidence(int $pct): void
+    {
+        Setting::set('min_confidence', max(0, min(100, $pct)));
+        Cache::forget('trading.min_confidence');
+    }
 }
