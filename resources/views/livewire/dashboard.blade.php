@@ -73,7 +73,7 @@
                     min="0"
                     step="1"
                     wire:model="minReserveInput"
-                    class="w-full bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-lg font-bold focus:outline-none focus:border-neon-blue/60"
+                    class="input-glass w-full text-lg font-bold"
                 >
                 <button type="submit" class="text-xs px-2 py-1 rounded-lg bg-neon-blue/20 border border-neon-blue/40 text-neon-blue hover:bg-neon-blue/30 transition-colors shrink-0">
                     OK
@@ -288,7 +288,7 @@
                 <thead>
                     <tr class="border-b border-white/[0.08]">
                         <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Asset</th>
-                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium hidden sm:table-cell">Typ</th>
+                        <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Typ</th>
                         <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Score</th>
                         <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium">Artikel</th>
                         <th class="pb-2 pr-3 text-left text-xs text-white/30 font-medium hidden md:table-cell">Source</th>

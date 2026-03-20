@@ -178,26 +178,22 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs text-white/50 mb-1.5">Min. Trade (€)</label>
-                    <input type="number" wire:model="minTradeUsd" min="1"
-                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-green/50">
+                    <input type="number" wire:model="minTradeUsd" min="1" class="input-glass w-full">
                     @error('minTradeUsd') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="block text-xs text-white/50 mb-1.5">Max. Trade (€)</label>
-                    <input type="number" wire:model="maxTradeUsd" min="1"
-                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-green/50">
+                    <input type="number" wire:model="maxTradeUsd" min="1" class="input-glass w-full">
                     @error('maxTradeUsd') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="block text-xs text-white/50 mb-1.5">Min. Confidence (%)</label>
-                    <input type="number" wire:model="minConfidence" min="0" max="100"
-                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-blue/50">
+                    <input type="number" wire:model="minConfidence" min="0" max="100" class="input-glass w-full">
                     @error('minConfidence') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="block text-xs text-white/50 mb-1.5">Cash-Reserve (€)</label>
-                    <input type="number" wire:model="minReserveUsd" min="0"
-                        class="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-blue/50">
+                    <input type="number" wire:model="minReserveUsd" min="0" class="input-glass w-full">
                     @error('minReserveUsd') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
             </div>
@@ -222,8 +218,7 @@
                 <label class="block text-xs text-white/50 mb-2">Zeitzone</label>
                 <select
                     wire:model="timezone"
-                    class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-blue/50"
-                    style="background-color:#0f1628; color:#ffffff;"
+                    class="select-glass w-full"
                 >
                     @foreach($timezoneGroups as $group => $zones)
                         <optgroup label="{{ $group }}">

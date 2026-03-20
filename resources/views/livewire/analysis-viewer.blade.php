@@ -1,6 +1,6 @@
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    {{-- Analysis List — auf Mobile versteckt wenn Detail geöffnet --}}
-    <div class="glass-card overflow-hidden {{ $selectedId ? 'hidden lg:block' : '' }}">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {{-- Analysis List — auf Mobile versteckt wenn Detail geöffnet, auf md immer sichtbar --}}
+    <div class="glass-card overflow-hidden {{ $selectedId ? 'hidden md:block' : 'block' }}">
         <div class="p-4 border-b border-white/[0.06]">
             <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Analysis Runs</h3>
         </div>
@@ -37,12 +37,12 @@
         @endif
     </div>
 
-    {{-- Analysis Detail — auf Mobile versteckt wenn nichts ausgewählt --}}
-    <div class="glass-card p-6 {{ !$selectedId ? 'hidden lg:block' : '' }}">
+    {{-- Analysis Detail — auf Mobile versteckt wenn nichts ausgewählt, auf md immer sichtbar --}}
+    <div class="glass-card p-6 {{ !$selectedId ? 'hidden md:block' : 'block' }}">
         @if($selected)
             <div class="mb-4 flex items-center gap-3">
                 {{-- Zurück-Button (nur Mobile) --}}
-                <button wire:click="$set('selectedId', null)" class="lg:hidden text-white/40 hover:text-white transition-colors">
+                <button wire:click="$set('selectedId', null)" class="md:hidden text-white/40 hover:text-white transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>

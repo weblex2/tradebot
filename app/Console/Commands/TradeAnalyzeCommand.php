@@ -107,17 +107,29 @@ class TradeAnalyzeCommand extends Command
         $decisions = $result['decisions'] ?? [];
         $this->info("Decisions from AI: " . count($decisions));
 
+        $summary = ['hold' => 0, 'skipped' => 0, 'created' => 0];
+
         foreach ($decisions as $d) {
             $assetSymbol   = strtoupper($d['asset_symbol'] ?? '');
             $allowedAssets = config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']);
 
             if (!in_array($assetSymbol, $allowedAssets)) {
                 $this->warn("Skipping disallowed asset: {$assetSymbol}");
+                BotLogger::info('analyzer', "Decision skipped: {$assetSymbol} not in allowed assets", [
+                    'asset' => $assetSymbol,
+                ], null, $analysis->id);
+                $summary['skipped']++;
                 continue;
             }
 
             if (($d['action'] ?? '') === 'hold') {
-                $this->line("  [hold] {$assetSymbol} → skipped");
+                $this->line("  [hold] {$assetSymbol} → " . ($d['rationale'] ?? 'no rationale'));
+                BotLogger::info('analyzer', "Hold: {$assetSymbol} – " . substr($d['rationale'] ?? '', 0, 120), [
+                    'asset'      => $assetSymbol,
+                    'confidence' => $d['confidence'] ?? null,
+                    'rationale'  => $d['rationale'] ?? null,
+                ], null, $analysis->id);
+                $summary['hold']++;
                 continue;
             }
 
@@ -161,11 +173,15 @@ class TradeAnalyzeCommand extends Command
             } else {
                 $this->line("    → Auto-Trade OFF: decision #{$decision->id} saved, awaiting manual approval");
             }
+            $summary['created']++;
         }
 
         $this->info('trade:analyze complete.');
-        BotLogger::info('scheduler', "Analysis cycle done: " . count($decisions) . " decisions", [
+        BotLogger::info('scheduler', "Analysis cycle done: {$summary['created']} traded, {$summary['hold']} hold, {$summary['skipped']} skipped", [
             'decision_count' => count($decisions),
+            'created'        => $summary['created'],
+            'hold'           => $summary['hold'],
+            'skipped'        => $summary['skipped'],
             'analysis_id'    => $analysis->id,
         ], null, $analysis->id);
         return self::SUCCESS;

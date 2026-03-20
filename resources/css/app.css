@@ -130,6 +130,7 @@
 
     .select-glass {
         @apply input-glass appearance-none pr-8;
+        background-color: #0f1628;
     }
 
     .sidebar-link {
