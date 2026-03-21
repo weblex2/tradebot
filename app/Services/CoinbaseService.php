@@ -246,36 +246,59 @@ class CoinbaseService
 
         foreach ($assetSymbols as $symbol) {
             $end   = time();
-            $start = $end - (8 * 86400); // 8 days back for 7-day average + today
+            $start = $end - (55 * 86400); // 55 days for SMA50 + volume
 
-            $path     = '/api/v3/brokerage/products/' . urlencode($symbol . '-USD')
-                      . '/candles?start=' . $start . '&end=' . $end . '&granularity=ONE_DAY';
-            $response = $this->request('GET', $path);
+            $candles = $this->getCandles($symbol, 'ONE_DAY', $start, $end);
+            if (!$candles || count($candles) < 2) {
+                usleep(150000);
+                continue;
+            }
 
-            if (!$response || isset($response['error'])) continue;
-
-            $candles = $response['candles'] ?? [];
-            if (count($candles) < 2) continue;
-
-            // Candles are newest-first; volume is in base currency
-            $price   = (float) ($candles[0]['close'] ?? 0);
-            if ($price <= 0) continue;
+            $price = (float) ($candles[0]['close'] ?? 0);
+            if ($price <= 0) {
+                usleep(150000);
+                continue;
+            }
 
             $volumes = array_map(fn($c) => (float) $c['volume'], $candles);
             $today   = $volumes[0];
-            $prev    = array_slice($volumes, 1);
-            $avg7d   = array_sum($prev) / count($prev);
+            $prev7d  = array_slice($volumes, 1, 7); // always exactly 7 days
+            $avg7d   = array_sum($prev7d) / count($prev7d);
 
             $result[$symbol] = [
-                'volume_24h_usd'   => (int) round($today * $price),
-                'volume_7d_avg_usd'=> (int) round($avg7d * $price),
-                'volume_ratio'     => $avg7d > 0 ? round($today / $avg7d, 2) : 1.0,
+                'volume_24h_usd'    => (int) round($today * $price),
+                'volume_7d_avg_usd' => (int) round($avg7d * $price),
+                'volume_ratio'      => $avg7d > 0 ? round($today / $avg7d, 2) : 1.0,
+                'daily_candles'     => $candles, // for technical analysis reuse
             ];
 
-            usleep(150000); // stay under rate limit
+            usleep(150000);
         }
 
         return $result;
+    }
+
+    /**
+     * Fetch OHLCV candles for one asset. Returns newest-first array or null.
+     */
+    public function getCandles(string $symbol, string $granularity, int $start, int $end): ?array
+    {
+        $path     = '/api/v3/brokerage/products/' . urlencode($symbol . '-USD')
+                  . '/candles?start=' . $start . '&end=' . $end . '&granularity=' . $granularity;
+        $response = $this->request('GET', $path);
+        if (!$response || isset($response['error'])) return null;
+        return $response['candles'] ?? null;
+    }
+
+    /**
+     * Fetch hourly candles for technical analysis (RSI, MACD).
+     * Returns newest-first array or null.
+     */
+    public function getHourlyCandles(string $symbol, int $hours = 60): ?array
+    {
+        $end   = time();
+        $start = $end - ($hours * 3600);
+        return $this->getCandles($symbol, 'ONE_HOUR', $start, $end);
     }
 
     /**

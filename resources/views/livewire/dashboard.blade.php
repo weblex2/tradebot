@@ -274,6 +274,7 @@
                     ->pluck('currency')
                     ->filter(fn($c) => $c !== 'EUR')
                     ->unique()
+                    ->sortByDesc(fn($c) => (float) ($assetSentiment[$c]->avg_score ?? 0))
                     ->values();
             @endphp
             <div class="space-y-3 overflow-y-auto pr-1">

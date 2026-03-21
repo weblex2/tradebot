@@ -7,6 +7,7 @@ use App\Models\TradeDecision;
 use App\Services\BotLogger;
 use App\Services\ClaudeAnalysisService;
 use App\Services\CoinbaseService;
+use App\Services\TechnicalAnalysisService;
 use App\Services\TradeExecutor;
 use App\Services\TradingSettings;
 use Illuminate\Console\Command;
@@ -21,9 +22,10 @@ class TradeAnalyzeCommand extends Command
     protected $description = 'Run analysis cycle and execute trade decisions';
 
     public function __construct(
-        private ClaudeAnalysisService $claude,
-        private CoinbaseService       $coinbase,
-        private TradeExecutor         $executor
+        private ClaudeAnalysisService    $claude,
+        private CoinbaseService          $coinbase,
+        private TradeExecutor            $executor,
+        private TechnicalAnalysisService $ta
     ) {
         parent::__construct();
     }
@@ -76,20 +78,32 @@ class TradeAnalyzeCommand extends Command
         $portfolio = $this->getPortfolio($liveConfirmed);
         $this->info('Portfolio snapshot taken.');
 
-        // 3. Fetch trading volume for signal assets
-        $signalAssets = array_column($signals, 'asset');
+        // 3. Fetch trading volume + daily candles for signal assets
+        $signalAssets  = array_column($signals, 'asset');
         $allowedAssets = config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']);
         $volumeAssets  = array_values(array_intersect($signalAssets, $allowedAssets));
         $volumeData    = [];
         if (!empty($volumeAssets)) {
-            $coinbase    = app(\App\Services\CoinbaseService::class);
-            $volumeData  = $coinbase->getVolumeData($volumeAssets);
+            $volumeData = $this->coinbase->getVolumeData($volumeAssets);
             $this->info('Volume data fetched for: ' . implode(', ', array_keys($volumeData)));
+        }
+
+        // 3b. Technical analysis (hourly candles + reuse daily candles from volume fetch)
+        $technicalData = [];
+        foreach ($volumeAssets as $symbol) {
+            $dailyCandles  = $volumeData[$symbol]['daily_candles'] ?? null;
+            $hourlyCandles = $this->coinbase->getHourlyCandles($symbol, 60);
+            usleep(150000);
+            $block = $this->ta->buildPromptBlock($symbol, $dailyCandles, $hourlyCandles);
+            if ($block) $technicalData[$symbol] = $block;
+        }
+        if (!empty($technicalData)) {
+            $this->info('Technical analysis computed for: ' . implode(', ', array_keys($technicalData)));
         }
 
         // 4. Run AI analysis
         $this->info('Calling AI analysis (Claude with Gemini fallback)...');
-        $result = $this->claude->runAnalysis($signals, $portfolio, $volumeData);
+        $result = $this->claude->runAnalysis($signals, $portfolio, $volumeData, $technicalData);
 
         if ($result === null) {
             $this->error('AI analysis failed (both models returned null).');
@@ -108,7 +122,7 @@ class TradeAnalyzeCommand extends Command
             'triggered_by'       => $liveConfirmed ? 'cli:live' : 'cli:paper',
             'portfolio_snapshot' => $portfolio,
             'articles_evaluated' => $articleIds,
-            'signals_summary'    => ['signals' => $signals, 'volume' => $volumeData],
+            'signals_summary'    => ['signals' => $signals, 'volume' => $volumeData, 'technical' => $technicalData],
             'claude_reasoning'   => $result['reasoning'],
         ]);
 

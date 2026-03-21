@@ -73,7 +73,7 @@ class ClaudeAnalysisService
     /**
      * Run a full analysis cycle over recent signals and portfolio state.
      */
-    public function runAnalysis(array $signals, array $portfolio, array $volumeData = []): ?array
+    public function runAnalysis(array $signals, array $portfolio, array $volumeData = [], array $technicalData = []): ?array
     {
         $allowedAssets = implode(', ', config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']));
 
@@ -108,6 +108,12 @@ Rules:
 - take_profit_pct: float or null
 - Capital preservation first. When in doubt, hold.
 - Use volume data as confirmation signal: high volume (ratio >= 1.3) strengthens a move, low volume weakens it. Do NOT buy solely because of high volume.
+- Use technical indicators to confirm or counter sentiment signals:
+  RSI > 70 = overbought (weakens buy), RSI < 30 = oversold (strengthens buy / weakens sell).
+  MACD histogram positive and rising = bullish momentum. Negative and falling = bearish.
+  Price above BB upper = stretched, caution on buys. Price below BB lower = potential reversal.
+  Death cross (SMA20 < SMA50) = bearish trend, prefer hold/sell. Golden cross = bullish trend.
+  Price near support with oversold RSI = high-conviction buy setup.
 - Only recommend trades with confidence >= 60
 - Maximum one decision per asset
 - For hold decisions, set amount_usd to 0
@@ -132,9 +138,14 @@ SYSTEM;
             ? "\n\n## Trading Volume (24h vs 7-day average)\n" . implode("\n", $volumeLines)
             : '';
 
+        $taSection = !empty($technicalData)
+            ? "\n\n## Technical Analysis\n" . implode("\n\n", $technicalData)
+            : '';
+
         $user = "## Current Portfolio\n" . json_encode($portfolio, JSON_PRETTY_PRINT)
               . "\n\n## Recent Signals (last 6h)\n" . json_encode($signals, JSON_PRETTY_PRINT)
-              . $volumeSection;
+              . $volumeSection
+              . $taSection;
 
         $data = $this->callModel($system, $user, 'trade analysis');
         if ($data === null) {
