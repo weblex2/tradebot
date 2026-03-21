@@ -1,27 +1,24 @@
 <?php
+
 namespace App\Livewire;
 
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Session;
+use App\Models\ChatSession;
+use App\Models\ChatMessage;
 
 #[Layout('layouts.tradebot', ['title' => 'AI Chat'])]
 class AiChat extends Component
 {
-    /** Laravel session key that holds ALL sessions (id → {name, created_at, messages}) */
-    private const SESSIONS_KEY = 'aichat.sessions';
-
-    /** Laravel session key for the currently active session ID */
+    /** PHP Session key to remember which session is active on THIS device */
     private const ACTIVE_KEY = 'aichat.active_session';
 
-    /** Legacy single-session key – migrated automatically on first load */
-    private const LEGACY_KEY = 'aichat.messages';
-
-    /** Maximum number of saved sessions to keep */
+    /** Maximum number of saved sessions to keep in DB */
     private const MAX_SESSIONS = 10;
 
-    /** Maximum messages per session */
+    /** Maximum messages kept per session */
     private const MAX_MESSAGES = 50;
 
     // ── Livewire public state ────────────────────────────────────────────────
@@ -34,7 +31,7 @@ class AiChat extends Component
     /** Metadata list for the dropdown: [{id, name, created_at}] */
     public array $sessions = [];
 
-    /** Currently active session ID */
+    /** Currently active session key */
     public string $activeSessionId = '';
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -42,23 +39,31 @@ class AiChat extends Component
     {
         $this->migrateLegacySession();
 
-        $allSessions = Session::get(self::SESSIONS_KEY, []);
+        $allSessions = ChatSession::orderBy('updated_at', 'desc')
+            ->limit(self::MAX_SESSIONS)
+            ->get();
 
-        if (empty($allSessions)) {
+        if ($allSessions->isEmpty()) {
             $this->createNewSession();
             return;
         }
 
-        $this->activeSessionId = Session::get(self::ACTIVE_KEY, '');
+        // Restore last-used session for this device from PHP session
+        $storedKey = Session::get(self::ACTIVE_KEY, '');
+        $active    = $storedKey
+            ? $allSessions->firstWhere('session_key', $storedKey)
+            : null;
 
-        // Fall back to first session if the stored ID is gone
-        if (! $this->activeSessionId || ! isset($allSessions[$this->activeSessionId])) {
-            $this->activeSessionId = array_key_first($allSessions);
-            Session::put(self::ACTIVE_KEY, $this->activeSessionId);
+        // Fall back to most recently updated session
+        if (! $active) {
+            $active = $allSessions->first();
         }
 
-        $this->messages  = $allSessions[$this->activeSessionId]['messages'] ?? [];
-        $this->sessions  = $this->buildMetadata($allSessions);
+        $this->activeSessionId = $active->session_key;
+        Session::put(self::ACTIVE_KEY, $this->activeSessionId);
+
+        $this->messages = $this->loadMessagesFromDb($active);
+        $this->sessions = $this->buildMetadata($allSessions);
     }
 
     // ── Persona ───────────────────────────────────────────────────────────────
@@ -94,12 +99,12 @@ class AiChat extends Component
     // ── Session management ────────────────────────────────────────────────────
     public function loadSession(string $id): void
     {
-        $allSessions = Session::get(self::SESSIONS_KEY, []);
-        if (! isset($allSessions[$id])) return;
+        $session = ChatSession::where('session_key', $id)->first();
+        if (! $session) return;
 
         $this->activeSessionId = $id;
-        $this->messages        = $allSessions[$id]['messages'] ?? [];
         Session::put(self::ACTIVE_KEY, $id);
+        $this->messages = $this->loadMessagesFromDb($session);
 
         $this->dispatch('message-sent');
     }
@@ -109,52 +114,54 @@ class AiChat extends Component
         $id   = 'session_' . uniqid();
         $name = 'Session ' . now()->format('d.m.Y H:i');
 
-        $newEntry = [
-            'id'         => $id,
-            'name'       => $name,
-            'created_at' => now()->format('d.m.Y H:i'),
-            'messages'   => [],
-        ];
+        $session = ChatSession::create([
+            'session_key' => $id,
+            'name'        => $name,
+        ]);
 
-        $allSessions      = Session::get(self::SESSIONS_KEY, []);
-        $allSessions[$id] = $newEntry;
-
-        // Prune oldest sessions if limit exceeded
-        if (count($allSessions) > self::MAX_SESSIONS) {
-            reset($allSessions);
-            $oldestId = array_key_first($allSessions);
-            unset($allSessions[$oldestId]);
+        // Prune oldest session if limit exceeded
+        $count = ChatSession::count();
+        if ($count > self::MAX_SESSIONS) {
+            $oldest = ChatSession::orderBy('updated_at')->first();
+            $oldest?->delete(); // cascades to messages
         }
 
-        Session::put(self::SESSIONS_KEY, $allSessions);
-        Session::put(self::ACTIVE_KEY, $id);
-
         $this->activeSessionId = $id;
-        $this->messages        = [];
-        $this->sessions        = $this->buildMetadata($allSessions);
+        Session::put(self::ACTIVE_KEY, $id);
+        $this->messages = [];
+        $this->refreshSessionsList();
 
-        // Auto-Begrüßung von Tradebot beim Start jeder neuen Session
+        // Auto-greeting from Tradebot on every new session
         $greeting = $this->fetchGreeting();
+
+        ChatMessage::create([
+            'chat_session_id' => $session->id,
+            'role'            => 'assistant',
+            'content'         => $greeting,
+        ]);
+        $session->touch();
+
         $this->messages[] = [
             'role'    => 'assistant',
             'content' => $greeting,
             'time'    => now()->format('H:i'),
         ];
-        $this->persist();
+
+        $this->refreshSessionsList();
         $this->dispatch('message-sent');
     }
 
     public function deleteSession(string $id): void
     {
-        $allSessions = Session::get(self::SESSIONS_KEY, []);
-        unset($allSessions[$id]);
-        Session::put(self::SESSIONS_KEY, $allSessions);
+        $session = ChatSession::where('session_key', $id)->first();
+        $session?->delete(); // cascades to messages
 
-        $this->sessions = $this->buildMetadata($allSessions);
+        $this->refreshSessionsList();
 
         if ($this->activeSessionId === $id) {
-            if (! empty($allSessions)) {
-                $this->loadSession(array_key_first($allSessions));
+            $next = ChatSession::orderBy('updated_at', 'desc')->first();
+            if ($next) {
+                $this->loadSession($next->session_key);
             } else {
                 $this->createNewSession();
             }
@@ -163,20 +170,19 @@ class AiChat extends Component
 
     public function clearChat(): void
     {
+        $session = $this->getActiveSession();
+        $session?->messages()->delete();
         $this->messages = [];
-        $allSessions    = Session::get(self::SESSIONS_KEY, []);
-
-        if (isset($allSessions[$this->activeSessionId])) {
-            $allSessions[$this->activeSessionId]['messages'] = [];
-            Session::put(self::SESSIONS_KEY, $allSessions);
-        }
     }
 
-    // ── Chat ─────────────────────────────────────────────────────────────────
+    // ── Chat ──────────────────────────────────────────────────────────────────
     public function sendMessage(string $message = '', array $images = []): void
     {
         $text = trim($message);
         if (empty($text) && empty($images)) return;
+
+        $session = $this->getActiveSession();
+        if (! $session) return;
 
         $entry = [
             'role'    => 'user',
@@ -185,17 +191,26 @@ class AiChat extends Component
         ];
 
         if (! empty($images)) {
-            $entry['images'] = $images; // base64 data-URLs
+            $entry['images'] = $images;
         }
 
+        ChatMessage::create([
+            'chat_session_id' => $session->id,
+            'role'            => 'user',
+            'content'         => $text,
+            'images'          => ! empty($images) ? $images : null,
+        ]);
+        $session->touch();
+
         $this->messages[] = $entry;
-        $this->persist();
+        $this->enforceMessageLimit($session);
+        $this->autoRename($session);
         $this->dispatch('message-sent');
     }
 
     public function getResponse(): void
     {
-        $last = collect($this->messages)->last(fn($m) => $m['role'] === 'user');
+        $last = collect($this->messages)->last(fn ($m) => $m['role'] === 'user');
         if (! $last) return;
 
         $images   = $last['images'] ?? [];
@@ -203,89 +218,133 @@ class AiChat extends Component
             ? $this->callClaude($last['content'])
             : $this->callClaudeWithImages($last['content'], $images);
 
-        $this->messages[] = [
-            'role'    => 'assistant',
-            'content' => $response,
-            'time'    => now()->format('H:i'),
-        ];
-
-        $this->persist();
-        $this->dispatch('message-sent');
+        $this->appendResponse($response);
     }
 
     public function appendResponse(string $content): void
     {
+        $session = $this->getActiveSession();
+
+        if ($session) {
+            ChatMessage::create([
+                'chat_session_id' => $session->id,
+                'role'            => 'assistant',
+                'content'         => $content,
+            ]);
+            $session->touch();
+        }
+
         $this->messages[] = [
             'role'    => 'assistant',
             'content' => $content,
             'time'    => now()->format('H:i'),
         ];
-        $this->persist();
+
         $this->dispatch('message-sent');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    private function persist(): void
+
+    /** Load messages from DB and convert to the Livewire array format */
+    private function loadMessagesFromDb(ChatSession $session): array
     {
-        if (count($this->messages) > self::MAX_MESSAGES) {
-            $this->messages = array_slice($this->messages, -self::MAX_MESSAGES);
-        }
-
-        $allSessions = Session::get(self::SESSIONS_KEY, []);
-
-        if (isset($allSessions[$this->activeSessionId])) {
-            $allSessions[$this->activeSessionId]['messages'] = $this->messages;
-
-            // Auto-rename session after the first user message is saved
-            $currentName = $allSessions[$this->activeSessionId]['name'] ?? '';
-            if (str_starts_with($currentName, 'Session ')) {
-                $firstUserMsg = collect($this->messages)->firstWhere('role', 'user');
-                if ($firstUserMsg && ! empty($firstUserMsg['content'])) {
-                    $title = mb_substr(trim($firstUserMsg['content']), 0, 45);
-                    if (mb_strlen($firstUserMsg['content']) > 45) {
-                        $title .= '…';
-                    }
-                    $allSessions[$this->activeSessionId]['name'] = $title;
+        return $session->messages()
+            ->orderBy('id')
+            ->get()
+            ->map(function ($m) {
+                $entry = [
+                    'role'    => $m->role,
+                    'content' => $m->content,
+                    'time'    => $m->created_at->format('H:i'),
+                ];
+                if (! empty($m->images)) {
+                    $entry['images'] = $m->images;
                 }
-            }
-
-            Session::put(self::SESSIONS_KEY, $allSessions);
-            $this->sessions = $this->buildMetadata($allSessions);
-        }
+                return $entry;
+            })
+            ->values()
+            ->toArray();
     }
 
-    /** Build the lightweight metadata array shown in the dropdown (last MAX_SESSIONS only) */
-    private function buildMetadata(array $allSessions): array
+    private function getActiveSession(): ?ChatSession
     {
-        $meta = array_values(array_map(fn($s) => [
-            'id'         => $s['id'],
-            'name'       => $s['name'],
-            'created_at' => $s['created_at'],
-        ], $allSessions));
-
-        // Show only the most recent MAX_SESSIONS sessions
-        return array_slice($meta, -self::MAX_SESSIONS);
+        return ChatSession::where('session_key', $this->activeSessionId)->first();
     }
 
-    /** One-time migration from the old single-session storage format */
+    private function buildMetadata($sessions): array
+    {
+        return $sessions->map(fn ($s) => [
+            'id'         => $s->session_key,
+            'name'       => $s->name,
+            'created_at' => $s->created_at->format('d.m.Y H:i'),
+        ])->values()->toArray();
+    }
+
+    private function refreshSessionsList(): void
+    {
+        $allSessions    = ChatSession::orderBy('updated_at', 'desc')->limit(self::MAX_SESSIONS)->get();
+        $this->sessions = $this->buildMetadata($allSessions);
+    }
+
+    /** Auto-rename session after first user message */
+    private function autoRename(ChatSession $session): void
+    {
+        if (! str_starts_with($session->name, 'Session ')) return;
+
+        $firstUser = collect($this->messages)->firstWhere('role', 'user');
+        if (! $firstUser || empty($firstUser['content'])) return;
+
+        $title = mb_substr(trim($firstUser['content']), 0, 45);
+        if (mb_strlen($firstUser['content']) > 45) {
+            $title .= '…';
+        }
+
+        $session->update(['name' => $title]);
+        $this->refreshSessionsList();
+    }
+
+    /** Trim oldest messages from DB if the session grows beyond MAX_MESSAGES */
+    private function enforceMessageLimit(ChatSession $session): void
+    {
+        $count = $session->messages()->count();
+        if ($count <= self::MAX_MESSAGES) return;
+
+        $excess = $count - self::MAX_MESSAGES;
+        $ids    = $session->messages()->orderBy('id')->limit($excess)->pluck('id');
+        ChatMessage::whereIn('id', $ids)->delete();
+
+        // Also trim the in-memory array
+        $this->messages = array_slice($this->messages, -self::MAX_MESSAGES);
+    }
+
+    // ── Legacy migration: PHP Session → DB ───────────────────────────────────
     private function migrateLegacySession(): void
     {
-        $old = Session::get(self::LEGACY_KEY, []);
-        if (empty($old)) return;
+        // Migrate old multi-session format (stored in PHP session) to DB
+        $oldSessions = Session::get('aichat.sessions', []);
 
-        $id         = 'session_' . uniqid();
-        $allSessions = Session::get(self::SESSIONS_KEY, []);
+        foreach ($oldSessions as $key => $data) {
+            if (ChatSession::where('session_key', $key)->exists()) continue;
 
-        $allSessions[$id] = [
-            'id'         => $id,
-            'name'       => 'Bisherige Session',
-            'created_at' => now()->format('d.m.Y H:i'),
-            'messages'   => $old,
-        ];
+            $session = ChatSession::create([
+                'session_key' => $key,
+                'name'        => $data['name'] ?? 'Importierte Session',
+            ]);
 
-        Session::put(self::SESSIONS_KEY, $allSessions);
-        Session::put(self::ACTIVE_KEY, $id);
-        Session::forget(self::LEGACY_KEY);
+            foreach ($data['messages'] ?? [] as $msg) {
+                ChatMessage::create([
+                    'chat_session_id' => $session->id,
+                    'role'            => $msg['role'] ?? 'user',
+                    'content'         => $msg['content'] ?? '',
+                    'images'          => ! empty($msg['images']) ? $msg['images'] : null,
+                ]);
+            }
+        }
+
+        if (! empty($oldSessions)) {
+            Session::forget('aichat.sessions');
+            Session::forget('aichat.messages'); // legacy single-session format
+        }
     }
 
     // ── Claude calls (unchanged) ──────────────────────────────────────────────

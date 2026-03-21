@@ -1,6 +1,6 @@
 <div>
     {{-- Stats --}}
-    <div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div class="glass-card p-4 text-center">
             <div class="text-2xl font-bold text-white">{{ $stats['total'] }}</div>
             <div class="text-xs text-white/40 mt-1">Total</div>
@@ -10,20 +10,16 @@
             <div class="text-xs text-white/40 mt-1">Filled</div>
         </div>
         <div class="glass-card p-4 text-center">
+            <div class="text-2xl font-bold text-yellow-400">{{ $stats['pending'] }}</div>
+            <div class="text-xs text-white/40 mt-1">Pending</div>
+        </div>
+        <div class="glass-card p-4 text-center">
             <div class="text-2xl font-bold neon-text-red">{{ $stats['failed'] }}</div>
             <div class="text-xs text-white/40 mt-1">Failed</div>
         </div>
         <div class="glass-card p-4 text-center">
             <div class="text-2xl font-bold text-orange-400">{{ $stats['cancelled'] }}</div>
             <div class="text-xs text-white/40 mt-1">Cancelled</div>
-        </div>
-        <div class="glass-card p-4 text-center">
-            <div class="text-2xl font-bold neon-text-blue">{{ $stats['paper'] }}</div>
-            <div class="text-xs text-white/40 mt-1">Paper</div>
-        </div>
-        <div class="glass-card p-4 text-center">
-            <div class="text-2xl font-bold text-yellow-400">{{ $stats['live'] }}</div>
-            <div class="text-xs text-white/40 mt-1">Live</div>
         </div>
     </div>
 
@@ -71,7 +67,6 @@
                     <th>#</th>
                     <th>Asset</th>
                     <th>Action</th>
-                    <th>Mode</th>
                     <th>Status</th>
                     <th>Amount</th>
                     <th>Price</th>
@@ -90,9 +85,8 @@
                         </div>
                     </td>
                     <td><span class="badge-{{ $exec->action }}">{{ strtoupper($exec->action) }}</span></td>
-                    <td><span class="badge-{{ $exec->mode }}">{{ $exec->mode }}</span></td>
                     <td>
-                        <span class="badge-{{ $exec->status }}">{{ $exec->status }}</span>
+                        <span class="badge-{{ $exec->status }}">{{ strtoupper($exec->status) }}</span>
                         @if(in_array($exec->status, ['failed', 'cancelled']) && $exec->failure_reason)
                             <div class="text-xs mt-1 max-w-[180px] truncate {{ $exec->status === 'failed' ? 'text-neon-red/70' : 'text-white/40' }}" title="{{ $exec->failure_reason }}">
                                 {{ $exec->failure_reason }}
@@ -110,7 +104,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="text-center py-12 text-white/30">No executions yet.</td>
+                    <td colspan="8" class="text-center py-12 text-white/30">No executions yet.</td>
                 </tr>
                 @endforelse
             </tbody>

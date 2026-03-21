@@ -7,6 +7,7 @@ use App\Livewire\Docs;
 use App\Livewire\BotLogs;
 use App\Livewire\ErrorFixes;
 use App\Livewire\Dashboard as TradebotDashboard;
+use App\Livewire\Prompts;
 use App\Livewire\Settings;
 use App\Livewire\Sources;
 use App\Livewire\TradeHistory;
@@ -42,6 +43,7 @@ Route::middleware(['auth', 'verified'])->prefix('tradebot')->name('tradebot.')->
     Route::get('/chat', AiChat::class)->name('chat');
     Route::post('/chat/stream', [AiChatStreamController::class, 'stream'])->name('chat.stream');
     Route::get('/fixes', ErrorFixes::class)->name('fixes');
+    Route::get('/prompts', Prompts::class)->name('prompts');
     Route::get('/discussions', Discussions::class)->name('discussions');
     Route::get('/docs', Docs::class)->name('docs');
 });

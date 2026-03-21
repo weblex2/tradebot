@@ -58,11 +58,14 @@
             </div>
 
             {{-- Reasoning --}}
+            @php
+                $formattedReasoning = $selected->claude_reasoning
+                    ? nl2br(e(implode("\n", array_filter(array_map('trim', explode("\n", trim($selected->claude_reasoning)))))))
+                    : null;
+            @endphp
             <div class="mb-5">
                 <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Claude's Reasoning</div>
-                <div class="text-sm text-white/70 bg-white/[0.03] rounded-xl p-4 leading-relaxed border border-white/[0.06]">
-                    {{ $selected->claude_reasoning ?? 'No reasoning recorded.' }}
-                </div>
+                <div class="text-sm text-white/70 bg-white/[0.03] rounded-xl p-4 leading-relaxed border border-white/[0.06]">{!! $formattedReasoning ?? 'No reasoning recorded.' !!}</div>
             </div>
 
             {{-- Decisions --}}

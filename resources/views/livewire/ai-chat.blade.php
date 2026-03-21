@@ -1,4 +1,45 @@
-<div>
+<div x-data="{ creatingSession: false }">
+
+    {{-- ── Session-Lade-Modal ──────────────────────────────────────────────── --}}
+    <div
+        x-show="creatingSession"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+        style="display: none;"
+    >
+        <div class="glass-card p-10 flex flex-col items-center gap-5 max-w-xs w-full mx-4 text-center">
+            {{-- Animated ring --}}
+            <div class="relative w-20 h-20 flex items-center justify-center">
+                {{-- Outer glow ring --}}
+                <div class="absolute inset-0 rounded-full border-2 border-neon-green/20 animate-ping"></div>
+                {{-- Inner spinner --}}
+                <div class="w-16 h-16 rounded-2xl bg-neon-green/10 border border-neon-green/30 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-neon-green animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                        <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="text-white font-semibold text-base mb-1.5">Neue Session wird gestartet</div>
+                <div class="text-white/40 text-sm leading-relaxed">
+                    Tradebot lädt Kontext und begrüßt dich gleich…
+                </div>
+            </div>
+            {{-- Animated dots --}}
+            <div class="flex gap-1.5 items-center">
+                <div class="w-1.5 h-1.5 rounded-full bg-neon-green/60 animate-bounce" style="animation-delay: 0ms"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-neon-green/60 animate-bounce" style="animation-delay: 150ms"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-neon-green/60 animate-bounce" style="animation-delay: 300ms"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="mb-6">
         {{-- Title row --}}
         <div class="flex items-center justify-between">
@@ -28,7 +69,7 @@
 
             {{-- New session button --}}
             <button
-                wire:click="createNewSession"
+                x-on:click="creatingSession = true; $wire.createNewSession().then(() => { creatingSession = false; })"
                 title="Neue Session starten"
                 class="shrink-0 w-8 h-8 rounded-lg bg-neon-green/10 border border-neon-green/30 text-neon-green hover:bg-neon-green/20 transition-colors flex items-center justify-center"
             >

@@ -53,8 +53,6 @@ class TradeHistory extends Component
             'failed'    => Execution::where('status', 'failed')->count(),
             'cancelled' => Execution::where('status', 'cancelled')->count(),
             'pending'   => Execution::where('status', 'pending')->count(),
-            'paper'     => Execution::where('mode', 'paper')->count(),
-            'live'      => Execution::where('mode', 'live')->count(),
         ];
 
         return view('livewire.trade-history', compact('executions', 'stats'));

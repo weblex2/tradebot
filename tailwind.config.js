@@ -10,6 +10,17 @@ export default {
         './resources/views/**/*.blade.php',
         './app/Livewire/**/*.php',
     ],
+    safelist: [
+        // Dynamisch generierte Badge-Klassen (badge-{{ $exec->status }})
+        'badge-filled',
+        'badge-failed',
+        'badge-pending',
+        'badge-cancelled',
+        // Dynamisch generierte Badge-Klassen (badge-{{ $exec->action }})
+        'badge-buy',
+        'badge-sell',
+        'badge-hold',
+    ],
     theme: {
         extend: {
             fontFamily: {

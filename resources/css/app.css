@@ -113,10 +113,22 @@
                bg-neon-gold/10 border border-yellow-400/30 text-yellow-400;
     }
 
-    .badge-filled  { @apply badge-buy; }
-    .badge-failed  { @apply badge-sell; }
-    .badge-pending { @apply badge-paper; }
-    .badge-cancelled { @apply badge-hold; }
+    .badge-filled {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+               bg-neon-green/10 border border-neon-green/30 text-neon-green;
+    }
+    .badge-failed {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+               bg-neon-red/10 border border-neon-red/30 text-neon-red;
+    }
+    .badge-pending {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+               bg-neon-blue/10 border border-neon-blue/30 text-neon-blue;
+    }
+    .badge-cancelled {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+               bg-white/5 border border-white/20 text-white/50;
+    }
 
     .table-glass {
         @apply w-full text-sm;

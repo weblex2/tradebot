@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Models\PromptTemplate;
 use App\Services\BotLogger;
 use App\Services\TradingSettings;
 use App\Services\GeminiAnalysisService;
@@ -96,9 +97,10 @@ class ClaudeAnalysisService
             ? "Sellable assets (you currently hold these): {$heldAssets}."
             : "You hold NO crypto assets – do NOT generate any sell decisions.";
 
-        $system = <<<SYSTEM
+        // Fallback-Text falls DB-Eintrag fehlt
+        $fallbackSystem = <<<SYSTEM
 You are an expert crypto portfolio manager. Based on the provided signals and portfolio state, generate trading decisions.
-Return ONLY valid JSON (no markdown). Allowed assets: {$allowedAssets}.
+Return ONLY valid JSON (no markdown). Allowed assets: {allowed_assets}.
 
 Response shape:
 {"reasoning": "...", "decisions": [{"asset_symbol":"BTC","action":"buy","confidence":72,"amount_usd":250.00,"stop_loss_pct":5,"take_profit_pct":null,"rationale":"..."}]}
@@ -120,11 +122,20 @@ Rules:
 - Only recommend trades with confidence >= 60
 - Maximum one decision per asset
 - For hold decisions, set amount_usd to 0
-- Available cash for new buys: €{$cashEur} (keep at least €{$minReserve} as reserve → max spendable: €{$spendable})
-- Never suggest a buy with amount_usd > €{$maxTradeEur} or > €{$spendable}
-- {$sellableNote}
+- Available cash for new buys: €{cash_eur} (keep at least €{min_reserve} as reserve → max spendable: €{spendable})
+- Never suggest a buy with amount_usd > €{max_trade_eur} or > €{spendable}
+- {sellable_note}
 - NEVER suggest sell for an asset not listed as sellable above
 SYSTEM;
+
+        $system = PromptTemplate::render('analysis_system', [
+            'allowed_assets' => $allowedAssets,
+            'cash_eur'       => $cashEur,
+            'min_reserve'    => $minReserve,
+            'spendable'      => $spendable,
+            'max_trade_eur'  => $maxTradeEur,
+            'sellable_note'  => $sellableNote,
+        ], $fallbackSystem);
 
         // Build volume context string
         $volumeLines = [];
@@ -173,7 +184,7 @@ SYSTEM;
 
     private function scoreBatch(Collection $batch): array
     {
-        $system = <<<SYSTEM
+        $fallbackScoring = <<<SYSTEM
 You are a crypto market sentiment analyst. Score each article and return ONLY a valid JSON array – no markdown, no explanation.
 
 Response shape (one object per article, same order as input):
@@ -187,6 +198,8 @@ Rules:
 - Only include assets from this list: BTC, ETH, SOL, XRP, DOGE, SHIB, APE, ADA, AVAX, LINK, DOT, LTC, UNI, ATOM, FIL, ALGO, MANA, CRV, GRT, BAT, CHZ, MINA, SNX, XLM, XTZ, 1INCH
 - If no relevant signals, use "signals": []
 SYSTEM;
+
+        $system = PromptTemplate::getContent('scoring_system', $fallbackScoring);
 
         // Optimisation 3: only title + first 500 chars of content
         $items = $batch->map(fn($a) => [
