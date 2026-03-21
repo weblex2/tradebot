@@ -25,7 +25,6 @@ class GeminiAnalysisService
             ])->run([
                 'gemini',
                 '--prompt', $prompt,
-                '--output-format', 'json',
                 '--approval-mode', 'yolo',
             ]);
 

@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->enum('channel', ['scraper', 'claude', 'executor', 'coinbase', 'scheduler', 'order_status', 'system']);
             $table->enum('level', ['debug', 'info', 'warning', 'error']);
-            $table->string('message');
+            $table->text('message');
             $table->json('context')->nullable();
             $table->unsignedBigInteger('source_id')->nullable();
             $table->unsignedBigInteger('analysis_id')->nullable();

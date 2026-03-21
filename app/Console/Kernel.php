@@ -19,6 +19,9 @@ class Kernel extends ConsoleKernel
         // Analysis cycle: every 15 minutes, offset by 5 min after scraper
         $schedule->command('trade:analyze')->cron('5,20,35,50 * * * *')->withoutOverlapping();
 
+        // Auto error detection & fix: every 20 minutes
+        $schedule->command('errors:auto-fix')->cron('*/20 * * * *')->withoutOverlapping();
+
         // Prune old articles: weekly
         $schedule->job(new PruneOldArticlesJob())->weekly()->sundays()->at('02:00');
 

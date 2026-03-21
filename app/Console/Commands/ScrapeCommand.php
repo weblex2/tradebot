@@ -3,6 +3,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\ScraperJob;
 use App\Models\Source;
+use App\Services\BotLogger;
 use Illuminate\Console\Command;
 
 class ScrapeCommand extends Command
@@ -33,11 +34,15 @@ class ScrapeCommand extends Command
         }
 
         $due = $sources->filter(fn($s) => $s->isDueForScrape());
-        $this->info("Active sources: {$sources->count()}, due for scrape: {$due->count()}");
+
+        if ($due->isEmpty()) {
+            return self::SUCCESS;
+        }
+
+        BotLogger::info('scraper', "Scraper gestartet: {$due->count()} Sources fällig");
 
         foreach ($due as $source) {
             ScraperJob::dispatch($source);
-            $this->line("  → Dispatched: {$source->name}");
         }
 
         return self::SUCCESS;

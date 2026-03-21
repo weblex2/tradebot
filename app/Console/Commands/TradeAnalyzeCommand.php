@@ -107,6 +107,11 @@ class TradeAnalyzeCommand extends Command
         $decisions = $result['decisions'] ?? [];
         $this->info("Decisions from AI: " . count($decisions));
 
+        // Build a set of held assets for sell-guard (currency => value_eur)
+        $heldAssets = collect($portfolio['positions'] ?? [])
+            ->filter(fn($p) => ($p['balance'] ?? 0) > 0)
+            ->keyBy('currency');
+
         $summary = ['hold' => 0, 'skipped' => 0, 'created' => 0];
 
         foreach ($decisions as $d) {
@@ -116,6 +121,16 @@ class TradeAnalyzeCommand extends Command
             if (!in_array($assetSymbol, $allowedAssets)) {
                 $this->warn("Skipping disallowed asset: {$assetSymbol}");
                 BotLogger::info('analyzer', "Decision skipped: {$assetSymbol} not in allowed assets", [
+                    'asset' => $assetSymbol,
+                ], null, $analysis->id);
+                $summary['skipped']++;
+                continue;
+            }
+
+            // Hard sell-guard: reject sell decisions for assets not in the portfolio
+            if (($d['action'] ?? '') === 'sell' && !$heldAssets->has($assetSymbol)) {
+                $this->warn("Skipping sell for {$assetSymbol}: not in portfolio");
+                BotLogger::info('analyzer', "Sell decision skipped: {$assetSymbol} not held in portfolio", [
                     'asset' => $assetSymbol,
                 ], null, $analysis->id);
                 $summary['skipped']++;

@@ -72,6 +72,11 @@ class Dashboard extends Component
         $decision->delete();
     }
 
+    public function deleteExpiredDecisions(): void
+    {
+        TradeDecision::whereDoesntHave('execution')->delete();
+    }
+
     public function render()
     {
         $stats = Cache::remember('dashboard.stats', 60, function () {
@@ -123,12 +128,13 @@ class Dashboard extends Component
             $exec = $d->execution;
             $cur  = $currentPrices[$d->asset_symbol] ?? null;
             if (!$cur || !$exec?->price_at_execution || !$exec?->filled_size) continue;
-            $fillPrice = $exec->price_at_execution / 100;
-            $size      = (float) $exec->filled_size;
-            $fee       = $exec->fee_usd ? $exec->fee_usd / 100 : 0;
-            $pnl       = $exec->action === 'sell'
-                ? ($fillPrice - $cur) * $size - $fee
-                : ($cur - $fillPrice) * $size - $fee;
+            $fillPrice  = $exec->price_at_execution / 100;  // cents → EUR
+            $curEur     = $cur / 100;                        // cents → EUR
+            $size       = (float) $exec->filled_size;
+            $fee        = $exec->fee_usd ? $exec->fee_usd / 100 : 0;
+            $pnl        = $exec->action === 'sell'
+                ? ($fillPrice - $curEur) * $size - $fee
+                : ($curEur - $fillPrice) * $size - $fee;
             $totalPnl  = ($totalPnl ?? 0) + $pnl;
         }
 
@@ -148,8 +154,10 @@ class Dashboard extends Component
 
         $autoTrade = TradingSettings::autoTrade();
 
+        $expiredPendingCount = TradeDecision::whereDoesntHave('execution')->count();
+
         return view('livewire.dashboard', compact(
-            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices', 'totalPnl'
+            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices', 'totalPnl', 'expiredPendingCount'
         ));
     }
 }

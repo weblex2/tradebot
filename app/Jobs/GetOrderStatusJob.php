@@ -75,6 +75,6 @@ class GetOrderStatusJob implements ShouldQueue
             'fill_price' => $fillPrice,
         ], null, null, $this->execution->id);
 
-        $executor->notifyN8n($this->execution->fresh());
+        $executor->notifyNtfy($this->execution->fresh());
     }
 }

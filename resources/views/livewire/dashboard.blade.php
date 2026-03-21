@@ -129,6 +129,19 @@
             <div class="flex items-center justify-between mb-4 shrink-0">
                 <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Recent Decisions</h2>
 
+                <div class="flex items-center gap-3">
+                {{-- Clear pending decisions (no execution) --}}
+                @if($expiredPendingCount > 0)
+                    <button wire:click="deleteExpiredDecisions"
+                            wire:confirm="Alle {{ $expiredPendingCount }} pending Decisions (ohne Execution) löschen?"
+                            class="text-xs text-white/30 hover:text-neon-red transition-colors inline-flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        {{ $expiredPendingCount }} pending
+                    </button>
+                @endif
+
                 {{-- Auto Trade Toggle --}}
                 <button wire:click="toggleAutoTrade" class="flex items-center gap-2.5 group">
                     <span class="text-xs font-medium {{ $autoTrade ? 'text-neon-green' : 'text-white/40' }} transition-colors">
@@ -138,6 +151,7 @@
                         <div class="absolute top-0.5 w-4 h-4 rounded-full shadow transition-all duration-300 {{ $autoTrade ? 'left-5 bg-neon-green' : 'left-0.5 bg-white/40' }}"></div>
                     </div>
                 </button>
+                </div>
             </div>
 
             @if($recentDecisions->isEmpty())
@@ -206,7 +220,7 @@
                                     @endif
                                 </td>
                                 <td class="font-mono text-sm hidden lg:table-cell">
-                                    @php $curPrice = $currentPrices[$d->asset_symbol] ?? null; @endphp
+                                    @php $curPrice = isset($currentPrices[$d->asset_symbol]) ? $currentPrices[$d->asset_symbol] / 100 : null; @endphp
                                     @if($curPrice)
                                         €{{ number_format($curPrice, 4) }}
                                     @else
@@ -216,7 +230,7 @@
                                 <td class="font-mono text-sm">
                                     @php
                                         $pnl = null;
-                                        $curPrice = $currentPrices[$d->asset_symbol] ?? null;
+                                        $curPrice = isset($currentPrices[$d->asset_symbol]) ? $currentPrices[$d->asset_symbol] / 100 : null;
                                         if ($curPrice && $d->execution?->price_at_execution && $d->execution?->filled_size) {
                                             $fillPrice = $d->execution->price_at_execution / 100;
                                             $size      = (float) $d->execution->filled_size;
@@ -240,6 +254,7 @@
                                         <span class="text-xs px-2 py-0.5 rounded-full
                                             @if($d->execution->status === 'filled') bg-neon-green/10 text-neon-green border border-neon-green/20
                                             @elseif($d->execution->status === 'failed') bg-neon-red/10 text-neon-red border border-neon-red/20
+                                            @elseif($d->execution->status === 'cancelled') bg-orange-500/10 text-orange-400 border border-orange-500/20
                                             @else bg-white/5 text-white/40 border border-white/10 @endif">
                                             {{ $d->execution->status }}
                                         </span>

@@ -2,6 +2,7 @@
 namespace App\Livewire;
 
 use App\Models\Execution;
+use App\Models\TradeDecision;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,6 +20,21 @@ class TradeHistory extends Component
     public function updatingFilterStatus(): void { $this->resetPage(); }
     public function updatingFilterAsset():  void { $this->resetPage(); }
 
+    public function deleteByStatus(string $status): void
+    {
+        if (!in_array($status, ['failed', 'cancelled', 'pending'])) return;
+
+        // Delete the executions and their parent decisions together,
+        // so no orphaned decisions remain that would show as "pending" in the dashboard.
+        $decisionIds = Execution::where('status', $status)->pluck('trade_decision_id');
+        Execution::where('status', $status)->delete();
+        if ($decisionIds->isNotEmpty()) {
+            TradeDecision::whereIn('id', $decisionIds)->delete();
+        }
+
+        $this->resetPage();
+    }
+
     public function render()
     {
         $query = Execution::with(['tradeDecision.analysis'])
@@ -31,11 +47,13 @@ class TradeHistory extends Component
         $executions = $query->paginate(25);
 
         $stats = [
-            'total'   => Execution::count(),
-            'filled'  => Execution::where('status', 'filled')->count(),
-            'failed'  => Execution::where('status', 'failed')->count(),
-            'paper'   => Execution::where('mode', 'paper')->count(),
-            'live'    => Execution::where('mode', 'live')->count(),
+            'total'     => Execution::count(),
+            'filled'    => Execution::where('status', 'filled')->count(),
+            'failed'    => Execution::where('status', 'failed')->count(),
+            'cancelled' => Execution::where('status', 'cancelled')->count(),
+            'pending'   => Execution::where('status', 'pending')->count(),
+            'paper'     => Execution::where('mode', 'paper')->count(),
+            'live'      => Execution::where('mode', 'live')->count(),
         ];
 
         return view('livewire.trade-history', compact('executions', 'stats'));

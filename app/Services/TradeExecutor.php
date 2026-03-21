@@ -27,19 +27,19 @@ class TradeExecutor
 
         try {
             // Pre-execution checks
-            $failReason = $this->runChecks($decision, $liveConfirmed);
-            if ($failReason !== null) {
-                $execution->status         = 'failed';
+            $checkResult = $this->runChecks($decision, $liveConfirmed);
+            if ($checkResult !== null) {
+                [$checkStatus, $failReason] = $checkResult;
+                $execution->status         = $checkStatus;
                 $execution->failure_reason = $failReason;
                 $execution->save();
-                BotLogger::warning('executor', "Trade rejected: {$failReason}", [
+                BotLogger::warning('executor', "Trade {$checkStatus}: {$failReason}", [
                     'decision_id' => $decision->id,
                     'asset'       => $decision->asset_symbol,
                     'action'      => $decision->action,
                     'confidence'  => $decision->confidence,
                     'amount_eur'  => $decision->amount_usd / 100,
                 ], null, null, $execution->id);
-                $this->notifyN8n($execution);
                 $this->notifyNtfy($execution);
                 return $execution;
             }
@@ -68,41 +68,45 @@ class TradeExecutor
                 'exception'   => $e->getMessage(),
                 'file'        => $e->getFile() . ':' . $e->getLine(),
             ], null, null, $execution->id);
-            $this->notifyN8n($execution);
             $this->notifyNtfy($execution);
             return $execution;
         }
     }
 
-    private function runChecks(TradeDecision $decision, bool $liveConfirmed): ?string
+    /**
+     * Run pre-execution checks.
+     * Returns [status, reason] tuple on failure, or null if all checks pass.
+     * Status is 'failed' for hard failures (config/logic), 'cancelled' for insufficient funds.
+     */
+    private function runChecks(TradeDecision $decision, bool $liveConfirmed): ?array
     {
         // 1. Not expired
         if ($decision->isExpired()) {
-            return 'Decision expired at ' . $decision->expires_at->toIso8601String();
+            return ['failed', 'Decision expired at ' . $decision->expires_at->toIso8601String()];
         }
 
         // 2. Confidence threshold
         $minConfidence = TradingSettings::minConfidence();
         if ($decision->confidence < $minConfidence) {
-            return "Confidence {$decision->confidence} below minimum {$minConfidence}";
+            return ['failed', "Confidence {$decision->confidence} below minimum {$minConfidence}"];
         }
 
         // 3. Amount within bounds
         $minTradeCents = TradingSettings::minTradeUsd() * 100;
         if ($decision->amount_usd < $minTradeCents) {
-            return "Amount €" . number_format($decision->amount_usd / 100, 2) . " is below minimum €" . number_format($minTradeCents / 100, 2);
+            return ['failed', "Amount €" . number_format($decision->amount_usd / 100, 2) . " is below minimum €" . number_format($minTradeCents / 100, 2)];
         }
 
         $maxTradeCents = TradingSettings::maxTradeUsd() * 100;
         if ($decision->amount_usd > $maxTradeCents) {
-            return "Amount €" . number_format($decision->amount_usd / 100, 2) . " exceeds maximum €" . number_format($maxTradeCents / 100, 2);
+            return ['failed', "Amount €" . number_format($decision->amount_usd / 100, 2) . " exceeds maximum €" . number_format($maxTradeCents / 100, 2)];
         }
 
         // 4. Allowed asset guard
         $allowedAssets = config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']);
         if (!in_array($decision->asset_symbol, $allowedAssets)) {
             Log::warning('TradeExecutor: disallowed asset attempted', ['asset' => $decision->asset_symbol]);
-            return "Asset {$decision->asset_symbol} not in allowed list";
+            return ['failed', "Asset {$decision->asset_symbol} not in allowed list"];
         }
 
         // 5. Hold actions skip financial checks
@@ -110,19 +114,50 @@ class TradeExecutor
             return null;
         }
 
-        // 6. Cash reserve check for buys (live mode only)
-        if ($this->isLiveMode($liveConfirmed) && $decision->action === 'buy') {
+        // 6. Live-mode balance checks
+        if ($this->isLiveMode($liveConfirmed)) {
             $breakdown = $this->coinbase->getPortfolioBreakdown();
             if ($breakdown === null) {
-                return 'Could not retrieve portfolio for pre-execution check';
+                return ['failed', 'Could not retrieve portfolio for pre-execution check'];
             }
 
-            $cashCents       = (int) round($breakdown['cash_eur'] * 100);
-            $minReserveCents = (int) round(TradingSettings::minReserve() * 100);
+            if ($decision->action === 'buy') {
+                $cashCents       = (int) round($breakdown['cash_eur'] * 100);
+                $minReserveCents = (int) round(TradingSettings::minReserve() * 100);
 
-            if (($cashCents - $decision->amount_usd) < $minReserveCents) {
-                return "Insufficient cash reserve. Available: €" . number_format($breakdown['cash_eur'], 2)
-                    . ", Required reserve: €" . number_format(TradingSettings::minReserve(), 2);
+                if (($cashCents - $decision->amount_usd) < $minReserveCents) {
+                    return ['cancelled', "Insufficient cash. Available: €" . number_format($breakdown['cash_eur'], 2)
+                        . ", Required: €" . number_format($decision->amount_usd / 100, 2)
+                        . ", Reserve: €" . number_format(TradingSettings::minReserve(), 2)];
+                }
+            }
+
+            if ($decision->action === 'sell') {
+                // Use available_balance from accounts endpoint – portfolio breakdown includes
+                // staked/locked amounts that Coinbase will NOT let us sell.
+                $availableCrypto = $this->coinbase->getAvailableBalance($decision->asset_symbol);
+                if ($availableCrypto === null) {
+                    return ['failed', "Could not retrieve available balance for {$decision->asset_symbol}"];
+                }
+
+                if ($availableCrypto <= 0) {
+                    return ['cancelled', "No {$decision->asset_symbol} spot balance available to sell"];
+                }
+
+                // Compare in crypto units to avoid EUR/price fluctuation rounding errors.
+                // Apply 1% price-drift tolerance: treat available as 1% more than nominal.
+                $priceCents   = $this->coinbase->getPrice($decision->asset_symbol);
+                if (!$priceCents) {
+                    return ['failed', "Could not retrieve price for {$decision->asset_symbol}"];
+                }
+                $neededCrypto    = ($decision->amount_usd / 100) / ($priceCents / 100);
+                $availableWithTolerance = $availableCrypto * 1.01;
+
+                if ($availableWithTolerance < $neededCrypto) {
+                    $availableEur = $availableCrypto * ($priceCents / 100);
+                    return ['cancelled', "Insufficient {$decision->asset_symbol} spot balance. Available: €" . number_format($availableEur, 2)
+                        . " ({$availableCrypto} {$decision->asset_symbol}), Need: €" . number_format($decision->amount_usd / 100, 2)];
+                }
             }
         }
 
@@ -131,11 +166,15 @@ class TradeExecutor
 
     private function executeLive(Execution $execution, TradeDecision $decision): Execution
     {
-        $order = $this->coinbase->placeMarketOrder(
-            $decision->asset_symbol,
-            $decision->action,
-            $decision->amount_usd
-        );
+        $amount = $decision->amount_usd;
+        $order  = $this->coinbase->placeMarketOrder($decision->asset_symbol, $decision->action, $amount);
+
+        // On insufficient funds, reduce by 5% and retry once (covers EUR rounding/balance drift)
+        if (($order['error_response']['error'] ?? $order['error'] ?? null) === 'INSUFFICIENT_FUND') {
+            $amount = (int) round($amount * 0.95);
+            $execution->amount_usd = $amount;
+            $order = $this->coinbase->placeMarketOrder($decision->asset_symbol, $decision->action, $amount);
+        }
 
         if ($order === null) {
             $execution->status         = 'failed';
@@ -145,7 +184,6 @@ class TradeExecutor
                 'asset'  => $decision->asset_symbol,
                 'action' => $decision->action,
             ], null, null, $execution->id);
-            $this->notifyN8n($execution);
             $this->notifyNtfy($execution);
             return $execution;
         }
@@ -157,7 +195,7 @@ class TradeExecutor
             $execution->status = 'pending';
             $execution->save();
             GetOrderStatusJob::dispatch($execution)->delay(now()->addSeconds(10));
-            $amountEur = number_format($decision->amount_usd / 100, 2);
+            $amountEur = number_format($amount / 100, 2);
             BotLogger::info('executor', "Live order placed: {$decision->asset_symbol} {$decision->action} €{$amountEur}", [
                 'order_id' => $orderId,
                 'asset'    => $decision->asset_symbol,
@@ -176,7 +214,6 @@ class TradeExecutor
             ], null, null, $execution->id);
         }
 
-        $this->notifyN8n($execution);
         $this->notifyNtfy($execution);
 
         return $execution;
@@ -191,7 +228,6 @@ class TradeExecutor
         $execution->status             = 'filled';
         $execution->save();
 
-        $this->notifyN8n($execution);
         $this->notifyNtfy($execution);
 
         $amountEur = number_format($decision->amount_usd / 100, 2);
@@ -215,29 +251,6 @@ class TradeExecutor
         return $this->isLiveMode($liveConfirmed) ? 'live' : 'paper';
     }
 
-
-    public function notifyN8n(Execution $execution): void
-    {
-        $webhookUrl = config('trading.n8n_webhook_url', '');
-        if (empty($webhookUrl)) return;
-
-        try {
-            Http::timeout(5)->post($webhookUrl, [
-                'execution_id'      => $execution->id,
-                'mode'              => $execution->mode,
-                'status'            => $execution->status,
-                'asset_symbol'      => $execution->asset_symbol,
-                'action'            => $execution->action,
-                'amount_usd_cents'  => $execution->amount_usd,
-                'amount_usd'        => $execution->amountInDollars(),
-                'price_at_execution'=> $execution->priceInDollars(),
-                'failure_reason'    => $execution->failure_reason,
-                'timestamp'         => now()->toIso8601String(),
-            ]);
-        } catch (\Throwable $e) {
-            BotLogger::warning('executor', "n8n notification failed: {$e->getMessage()}", ['exception' => $e->getMessage()]);
-        }
-    }
 
     public function notifyNtfy(Execution $execution): void
     {

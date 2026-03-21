@@ -9,7 +9,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class ScraperJob implements ShouldQueue
 {
@@ -23,9 +22,8 @@ class ScraperJob implements ShouldQueue
 
     public function handle(ScraperService $scraper): void
     {
-        BotLogger::info('scraper', "Scraper started for {$this->source->name}", [], $this->source->id);
         $count = $scraper->scrape($this->source);
-        BotLogger::info('scraper', "Scraper done: {$count} new articles for {$this->source->name}", ['articles_added' => $count], $this->source->id);
+        BotLogger::info('scraper', "{$count} neue Artikel von {$this->source->name}", ['articles_added' => $count], $this->source->id);
     }
 
     public function tags(): array

@@ -82,6 +82,17 @@ class ClaudeAnalysisService
         $minReserve  = TradingSettings::minReserve();
         $spendable   = max(0, round($cashEur - $minReserve, 2));
 
+        // Build a map of held assets with their EUR value for the prompt
+        $positions   = $portfolio['positions'] ?? [];
+        $heldAssets  = collect($positions)
+            ->filter(fn($p) => ($p['balance'] ?? 0) > 0)
+            ->map(fn($p) => $p['currency'] . ' (€' . number_format($p['value_eur'] ?? 0, 2) . ')')
+            ->values()
+            ->implode(', ');
+        $sellableNote = $heldAssets
+            ? "Sellable assets (you currently hold these): {$heldAssets}."
+            : "You hold NO crypto assets – do NOT generate any sell decisions.";
+
         $system = <<<SYSTEM
 You are an expert crypto portfolio manager. Based on the provided signals and portfolio state, generate trading decisions.
 Return ONLY valid JSON (no markdown). Allowed assets: {$allowedAssets}.
@@ -101,6 +112,8 @@ Rules:
 - For hold decisions, set amount_usd to 0
 - Available cash for new buys: €{$cashEur} (keep at least €{$minReserve} as reserve → max spendable: €{$spendable})
 - Never suggest a buy with amount_usd > €{$maxTradeEur} or > €{$spendable}
+- {$sellableNote}
+- NEVER suggest sell for an asset not listed as sellable above
 SYSTEM;
 
         $user = "## Current Portfolio\n" . json_encode($portfolio, JSON_PRETTY_PRINT)

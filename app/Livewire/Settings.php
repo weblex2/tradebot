@@ -109,7 +109,9 @@ class Settings extends Component
 
     public function saveTimezone(): void
     {
-        $allTimezones = collect(self::TIMEZONE_GROUPS)->flatten()->keys()->all();
+        $allTimezones = collect(self::TIMEZONE_GROUPS)
+            ->flatMap(fn($zones) => array_keys($zones))
+            ->all();
 
         $this->validate([
             'timezone' => ['required', 'string', 'in:' . implode(',', $allTimezones)],

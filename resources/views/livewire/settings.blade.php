@@ -234,7 +234,7 @@
             <div class="flex items-center justify-between">
                 <div class="text-xs text-white/30">
                     Aktuelle Zeit:
-                    <span class="text-white/60 font-mono">{{ now()->local()->format('d.m.Y H:i:s') }}</span>
+                    <span class="text-white/60 font-mono">{{ now()->setTimezone($timezone)->format('d.m.Y H:i:s') }}</span>
                 </div>
                 <button type="submit" class="btn-neon-green px-6">
                     Speichern

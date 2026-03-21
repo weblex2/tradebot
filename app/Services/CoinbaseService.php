@@ -48,6 +48,24 @@ class CoinbaseService
     }
 
     /**
+     * Get the available (tradeable spot) balance for a single asset.
+     * Uses the accounts endpoint – NOT the portfolio breakdown which includes staked/locked amounts.
+     * Returns crypto quantity or null on error.
+     */
+    public function getAvailableBalance(string $currency): ?float
+    {
+        $portfolio = $this->getPortfolio();
+        if ($portfolio === null) return null;
+
+        $account = collect($portfolio['accounts'])
+            ->firstWhere('currency', strtoupper($currency));
+
+        if (!$account) return 0.0;
+
+        return (float) ($account['available_balance']['value'] ?? 0);
+    }
+
+    /**
      * Get the full portfolio breakdown including total EUR value and per-asset EUR values.
      * Uses the portfolio UUID from the portfolios list endpoint.
      * Returns ['total_eur' => float, 'positions' => [...]] or null on error.
@@ -81,7 +99,14 @@ class CoinbaseService
         $balances  = $breakdown['portfolio_balances'] ?? [];
         $totalEur  = (float) ($balances['total_balance']['value'] ?? 0);
 
-        // Merge duplicate assets (e.g. SOL in spot + staking wallet)
+        // Fetch available (tradeable spot) balances from accounts endpoint.
+        // The portfolio breakdown includes staked/locked amounts which cannot be sold.
+        $accountsData     = $this->getPortfolio();
+        $availableByAsset = collect($accountsData['accounts'] ?? [])
+            ->keyBy('currency')
+            ->map(fn($a) => (float) ($a['available_balance']['value'] ?? 0));
+
+        // Build positions using available_balance (not total_balance_crypto)
         $merged = [];
         foreach ($breakdown['spot_positions'] ?? [] as $pos) {
             $currency = $pos['asset'] ?? '';
@@ -89,8 +114,18 @@ class CoinbaseService
             if (!isset($merged[$currency])) {
                 $merged[$currency] = ['currency' => $currency, 'balance' => 0.0, 'value_eur' => 0.0, 'allocation' => 0.0];
             }
-            $merged[$currency]['balance']    += (float) ($pos['total_balance_crypto'] ?? 0);
-            $merged[$currency]['value_eur']  += (float) ($pos['total_balance_fiat'] ?? 0);
+            // Use available spot balance; fall back to total if accounts data missing
+            $available = $availableByAsset->get($currency);
+            if ($available !== null) {
+                $merged[$currency]['balance'] = $available;
+                // Recalculate EUR value proportionally from total fiat
+                $total = (float) ($pos['total_balance_crypto'] ?? 0);
+                $totalFiat = (float) ($pos['total_balance_fiat'] ?? 0);
+                $merged[$currency]['value_eur'] = $total > 0 ? ($available / $total) * $totalFiat : 0.0;
+            } else {
+                $merged[$currency]['balance']   += (float) ($pos['total_balance_crypto'] ?? 0);
+                $merged[$currency]['value_eur'] += (float) ($pos['total_balance_fiat'] ?? 0);
+            }
             $merged[$currency]['allocation'] += (float) ($pos['allocation'] ?? 0);
         }
 
@@ -101,7 +136,7 @@ class CoinbaseService
 
         // Use actual EUR spot balance – NOT total_cash_equivalent which includes DAI/EURC
         // that Coinbase won't accept for market orders
-        $cashEur = (float) ($merged['EUR']['balance'] ?? 0);
+        $cashEur = $availableByAsset->get('EUR', (float) ($merged['EUR']['balance'] ?? 0));
 
         return [
             'total_eur' => $totalEur,
@@ -122,14 +157,15 @@ class CoinbaseService
 
     /**
      * Batch-fetch prices for multiple assets in a single API call.
-     * Returns ['BTC' => 69923.5, 'SHIB' => 0.00000574, ...] (USD as float).
+     * Fetches USD pairs internally and converts to EUR cents for display.
+     * Returns ['BTC' => 8492300, ...] (EUR cents as int).
      */
     public function getPrices(array $assetSymbols): array
     {
         if (empty($assetSymbols)) return [];
 
         $query = implode('&', array_map(
-            fn($s) => 'product_ids=' . urlencode($s . '-EUR'),
+            fn($s) => 'product_ids=' . urlencode($s . '-USD'),
             $assetSymbols
         ));
         $path = '/api/v3/brokerage/best_bid_ask?' . $query;
@@ -137,15 +173,18 @@ class CoinbaseService
         $response = $this->request('GET', $path);
         if ($response === null || isset($response['error'])) return [];
 
+        $eurUsdRate = $this->getEurUsdRate() ?? 1.0;
+
         $result = [];
         foreach ($response['pricebooks'] ?? [] as $book) {
             $productId = $book['product_id'] ?? '';
-            $symbol    = str_replace('-EUR', '', $productId);
-            // Mid-price between best bid and ask
+            $symbol    = str_replace('-USD', '', $productId);
+            // Mid-price between best bid and ask; convert USD → EUR cents
             $bid = (float) ($book['bids'][0]['price'] ?? 0);
             $ask = (float) ($book['asks'][0]['price'] ?? 0);
             if ($bid > 0 && $ask > 0) {
-                $result[$symbol] = ($bid + $ask) / 2;
+                $midUsd = ($bid + $ask) / 2;
+                $result[$symbol] = (int) round(($midUsd / $eurUsdRate) * 100);
             }
         }
 
@@ -178,12 +217,12 @@ class CoinbaseService
     }
 
     /**
-     * Fetch price and base_increment for a single asset.
-     * Returns ['price' => float, 'base_increment' => string] or null.
+     * Fetch USD price and base_increment for a single asset.
+     * Returns ['price' => float (USD), 'base_increment' => string] or null.
      */
     public function getProductInfo(string $assetSymbol): ?array
     {
-        $path     = '/api/v3/brokerage/products/' . urlencode($assetSymbol . '-EUR');
+        $path     = '/api/v3/brokerage/products/' . urlencode($assetSymbol . '-USD');
         $response = $this->request('GET', $path);
         if ($response === null || isset($response['error'])) return null;
 
@@ -208,6 +247,8 @@ class CoinbaseService
 
     /**
      * Place a market IOC order.
+     * amountCents is always in EUR cents. Internally booked via USD pairs;
+     * EUR amounts are converted to USD using the live EUR/USD rate.
      * Returns the order data array or null on failure.
      */
     public function placeMarketOrder(string $assetSymbol, string $side, int $amountCents): ?array
@@ -215,21 +256,25 @@ class CoinbaseService
         $path = '/api/v3/brokerage/orders';
 
         $clientOrderId = 'tradebot-' . uniqid();
-        $productId     = $assetSymbol . '-EUR';
 
         // Coinbase requires:
-        //   BUY  → quote_size  (EUR amount to spend)
-        //   SELL → base_size   (asset quantity to sell)
+        //   BUY  → EUR pair + quote_size in EUR  (cash is held in EUR)
+        //   SELL → USD pair + base_size in crypto (more assets have USD pairs)
         if (strtoupper($side) === 'SELL') {
-            $product = $this->getProductInfo($assetSymbol);
+            $productId  = $assetSymbol . '-USD';
+            $product    = $this->getProductInfo($assetSymbol);
             if (!$product || ($product['price'] ?? 0) <= 0) {
                 Log::error('CoinbaseService::placeMarketOrder: could not fetch product info for sell', ['asset' => $assetSymbol]);
                 return null;
             }
-            $decimals  = $this->decimalPlacesFromIncrement($product['base_increment'] ?? '0.00000001');
-            $baseSize  = number_format(($amountCents / 100) / $product['price'], $decimals, '.', '');
-            $orderSize = ['base_size' => $baseSize];
+            // Convert EUR cents → USD, then ÷ USD price = crypto quantity
+            $eurUsdRate = $this->getEurUsdRate() ?? 1.0;
+            $amountUsd  = ($amountCents / 100) * $eurUsdRate;
+            $decimals   = $this->decimalPlacesFromIncrement($product['base_increment'] ?? '0.00000001');
+            $baseSize   = number_format($amountUsd / $product['price'], $decimals, '.', '');
+            $orderSize  = ['base_size' => $baseSize];
         } else {
+            $productId = $assetSymbol . '-EUR';
             $orderSize = ['quote_size' => number_format($amountCents / 100, 2, '.', '')];
         }
 
@@ -255,7 +300,7 @@ class CoinbaseService
                 'amount'          => $amountCents,
                 'body'            => $body,
             ]);
-            return null;
+            return $response; // Return error response so caller can inspect the error code
         }
 
         return $response['success_response'] ?? $response;

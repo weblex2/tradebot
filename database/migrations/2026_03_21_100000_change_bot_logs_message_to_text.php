@@ -10,12 +10,16 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() !== 'mysql') return;
-        DB::statement("ALTER TABLE bot_logs MODIFY COLUMN channel ENUM('scraper', 'claude', 'executor', 'coinbase', 'scheduler', 'order_status', 'system', 'gemini') NOT NULL");
+        Schema::table('bot_logs', function (Blueprint $table) {
+            $table->text('message')->change();
+        });
     }
 
     public function down(): void
     {
         if (DB::getDriverName() !== 'mysql') return;
-        DB::statement("ALTER TABLE bot_logs MODIFY COLUMN channel ENUM('scraper', 'claude', 'executor', 'coinbase', 'scheduler', 'order_status', 'system') NOT NULL");
+        Schema::table('bot_logs', function (Blueprint $table) {
+            $table->string('message')->change();
+        });
     }
 };

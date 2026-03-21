@@ -5,7 +5,6 @@ use App\Models\Article;
 use App\Models\Source;
 use App\Services\BotLogger;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class ScraperService
 {
@@ -159,7 +158,7 @@ class ScraperService
                 ];
             }
         } catch (\Throwable $e) {
-            Log::warning('ScraperService: RSS parse error', ['url' => $sourceUrl, 'message' => $e->getMessage()]);
+            BotLogger::warning('scraper', "RSS parse error: {$e->getMessage()}", ['url' => $sourceUrl, 'exception' => $e->getMessage()]);
         }
 
         return $items;

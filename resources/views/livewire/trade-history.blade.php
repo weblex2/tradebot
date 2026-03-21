@@ -14,6 +14,10 @@
             <div class="text-xs text-white/40 mt-1">Failed</div>
         </div>
         <div class="glass-card p-4 text-center">
+            <div class="text-2xl font-bold text-orange-400">{{ $stats['cancelled'] }}</div>
+            <div class="text-xs text-white/40 mt-1">Cancelled</div>
+        </div>
+        <div class="glass-card p-4 text-center">
             <div class="text-2xl font-bold neon-text-blue">{{ $stats['paper'] }}</div>
             <div class="text-xs text-white/40 mt-1">Paper</div>
         </div>
@@ -24,7 +28,7 @@
     </div>
 
     {{-- Filters --}}
-    <div class="glass-card p-4 mb-6 flex gap-4">
+    <div class="glass-card p-4 mb-6 flex gap-4 items-center">
         <select wire:model.live="filterMode" class="select-glass">
             <option value="">All Modes</option>
             <option value="paper">Paper</option>
@@ -43,6 +47,20 @@
                 <option value="{{ $asset }}">{{ $asset }}</option>
             @endforeach
         </select>
+        <div class="ml-auto flex gap-2">
+            @foreach([['failed', 'btn-neon-red'], ['cancelled', 'bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30 rounded-lg font-medium transition-colors'], ['pending', 'badge-hold border border-white/20 hover:bg-white/10 rounded-lg font-medium transition-colors']] as [$status, $btnClass])
+                @if($stats[$status] > 0)
+                    <button wire:click="deleteByStatus('{{ $status }}')"
+                            wire:confirm="Alle {{ $stats[$status] }} {{ $status }} Executions löschen?"
+                            class="{{ $btnClass }} !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        {{ ucfirst($status) }} ({{ $stats[$status] }})
+                    </button>
+                @endif
+            @endforeach
+        </div>
     </div>
 
     {{-- Table --}}
@@ -70,8 +88,8 @@
                     <td><span class="badge-{{ $exec->mode }}">{{ $exec->mode }}</span></td>
                     <td>
                         <span class="badge-{{ $exec->status }}">{{ $exec->status }}</span>
-                        @if($exec->status === 'failed' && $exec->failure_reason)
-                            <div class="text-xs text-neon-red/70 mt-1 max-w-[180px] truncate" title="{{ $exec->failure_reason }}">
+                        @if(in_array($exec->status, ['failed', 'cancelled']) && $exec->failure_reason)
+                            <div class="text-xs mt-1 max-w-[180px] truncate {{ $exec->status === 'failed' ? 'text-neon-red/70' : 'text-white/40' }}" title="{{ $exec->failure_reason }}">
                                 {{ $exec->failure_reason }}
                             </div>
                         @endif
