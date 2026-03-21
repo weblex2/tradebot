@@ -18,7 +18,7 @@ class GeminiAnalysisService
 
             $home = $_SERVER['HOME'] ?? (is_dir('/home/ubuntu') ? '/home/ubuntu' : '/root');
 
-            $result = Process::timeout(90)->env([
+            $result = Process::timeout(90)->path(base_path())->env([
                 'HOME' => $home,
                 'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
                 'TERM' => 'dumb',
@@ -29,12 +29,8 @@ class GeminiAnalysisService
             ]);
 
             if (!$result->successful()) {
-                BotLogger::error('gemini', "Gemini process failed", [
-                    'exit_code' => $result->exitCode(),
-                    'stderr'    => substr($result->errorOutput(), 0, 1000),
-                    'user'      => exec('whoami'),
-                    'home'      => $home,
-                ]);
+                $stderr = trim(substr($result->errorOutput(), 0, 500));
+                BotLogger::error('gemini', "Gemini process failed (exit {$result->exitCode()}): {$stderr}");
                 return null;
             }
 
@@ -49,7 +45,7 @@ class GeminiAnalysisService
 
             return $data;
         } catch (\Throwable $e) {
-            BotLogger::error('gemini', "Gemini exception: {$e->getMessage()}", ['trace' => substr($e->getTraceAsString(), 0, 500)]);
+            BotLogger::error('gemini', "Gemini exception: {$e->getMessage()}");
             return null;
         }
     }

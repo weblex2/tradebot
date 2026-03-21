@@ -84,10 +84,45 @@
 
             {{-- Signals Summary --}}
             @if($selected->signals_summary)
+            @php
+                $summary = $selected->signals_summary;
+                $signals = $summary['signals'] ?? $summary; // backwards compat
+                $volume  = $summary['volume'] ?? [];
+            @endphp
             <div>
-                <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Signals Summary</div>
-                <pre class="text-xs text-white/40 bg-white/[0.02] rounded-xl p-4 overflow-x-auto border border-white/[0.04] font-mono">{{ json_encode($selected->signals_summary, JSON_PRETTY_PRINT) }}</pre>
+                <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Signals</div>
+                <div class="space-y-1.5">
+                    @foreach($signals as $sig)
+                    <div class="flex items-center justify-between bg-white/[0.02] rounded-lg px-3 py-2 border border-white/[0.04]">
+                        <span class="text-xs font-medium text-white">{{ $sig['asset'] ?? '?' }}</span>
+                        <span class="text-xs font-mono {{ ($sig['avg_score'] ?? 0) >= 0 ? 'text-neon-green' : 'text-neon-red' }}">
+                            {{ ($sig['avg_score'] ?? 0) >= 0 ? '+' : '' }}{{ number_format($sig['avg_score'] ?? 0, 3) }}
+                        </span>
+                        <span class="text-xs text-white/30">{{ $sig['signal_count'] ?? 0 }} signals</span>
+                    </div>
+                    @endforeach
+                </div>
             </div>
+
+            @if(!empty($volume))
+            <div>
+                <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Handelsvolumen (24h vs. 7d-Schnitt)</div>
+                <div class="space-y-1.5">
+                    @foreach($volume as $sym => $v)
+                    @php
+                        $ratio = $v['volume_ratio'];
+                        $color = $ratio >= 1.3 ? 'text-neon-green' : ($ratio <= 0.7 ? 'text-neon-red' : 'text-white/60');
+                    @endphp
+                    <div class="flex items-center justify-between bg-white/[0.02] rounded-lg px-3 py-2 border border-white/[0.04]">
+                        <span class="text-xs font-medium text-white">{{ $sym }}</span>
+                        <span class="text-xs text-white/40">${{ number_format($v['volume_24h_usd'] / 1_000_000, 1) }}M heute</span>
+                        <span class="text-xs text-white/30">Ø ${{ number_format($v['volume_7d_avg_usd'] / 1_000_000, 1) }}M</span>
+                        <span class="text-xs font-mono {{ $color }}">×{{ $ratio }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
             @endif
         @else
             <div class="flex flex-col items-center justify-center h-full py-16 text-center">

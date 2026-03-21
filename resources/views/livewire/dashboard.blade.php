@@ -40,16 +40,21 @@
             @endif
         </div>
 
+        {{-- DB Stats --}}
         <div class="glass-card p-5">
-            <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Active Sources</div>
-            <div class="text-3xl font-bold text-white">{{ $stats['total_sources'] }}</div>
-            <div class="text-xs text-neon-blue mt-1">news feeds</div>
+            <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Datenbank</div>
+            <div class="text-3xl font-bold neon-text-blue">{{ $dbStats['total_mb'] }} MB</div>
+            <div class="flex gap-3 mt-2">
+                @foreach($dbStats['tables'] as $table)
+                    <div class="text-xs text-white/30 truncate">{{ $table->table_name }}: {{ $table->size_mb }}MB</div>
+                @endforeach
+            </div>
         </div>
 
         <div class="glass-card p-5">
-            <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Articles Today</div>
-            <div class="text-3xl font-bold text-white">{{ $stats['articles_today'] }}</div>
-            <div class="text-xs text-white/30 mt-1">scraped & processed</div>
+            <div class="text-xs text-white/40 uppercase tracking-wider mb-2">Sources / Articles</div>
+            <div class="text-3xl font-bold text-white">{{ $stats['total_sources'] }}</div>
+            <div class="text-xs text-white/30 mt-1">{{ $stats['articles_today'] }} Artikel heute</div>
         </div>
 
         <div class="glass-card p-5">
@@ -84,45 +89,8 @@
 
     </div>
 
-    {{-- Asset sentiment + Recent decisions --}}
+    {{-- Recent decisions + Asset sentiment --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-        {{-- Asset Sentiment --}}
-        <div class="glass-card p-6 flex flex-col" style="max-height: 420px;">
-            <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4 shrink-0">Asset Sentiment (24h)</h2>
-            @php
-                $portfolioAssets = collect($portfolio['assets'] ?? [])
-                    ->pluck('currency')
-                    ->filter(fn($c) => $c !== 'EUR')
-                    ->unique()
-                    ->values();
-            @endphp
-            <div class="space-y-3 overflow-y-auto pr-1">
-                @forelse($portfolioAssets as $asset)
-                    @php
-                        $data  = $assetSentiment[$asset] ?? null;
-                        $score = $data ? (float) $data->avg_score : 0;
-                        $color = $score > 0.1 ? 'neon-green' : ($score < -0.1 ? 'neon-red' : 'white');
-                        $pct   = ($score + 1) / 2 * 100;
-                    @endphp
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-sm font-medium text-white">{{ $asset }}</span>
-                            <span class="text-xs font-mono text-{{ $color }}">
-                                {{ $score >= 0 ? '+' : '' }}{{ number_format($score, 2) }}
-                            </span>
-                        </div>
-                        <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full transition-all duration-500 bg-{{ $color }}"
-                                 style="width: {{ number_format($pct, 1) }}%; opacity: 0.8"></div>
-                        </div>
-                        <div class="text-xs text-white/30 mt-0.5">{{ $data?->signal_count ?? 0 }} signals</div>
-                    </div>
-                @empty
-                    <div class="text-xs text-white/30">Keine Portfolio-Daten verfügbar.</div>
-                @endforelse
-            </div>
-        </div>
 
         {{-- Recent Decisions --}}
         <div class="glass-card p-6 lg:col-span-2 flex flex-col" style="max-height: 420px;">
@@ -280,6 +248,43 @@
                 </table>
                 </div>
             @endif
+        </div>
+
+        {{-- Asset Sentiment --}}
+        <div class="glass-card p-6 flex flex-col" style="max-height: 420px;">
+            <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4 shrink-0">Asset Sentiment (24h)</h2>
+            @php
+                $portfolioAssets = collect($portfolio['assets'] ?? [])
+                    ->pluck('currency')
+                    ->filter(fn($c) => $c !== 'EUR')
+                    ->unique()
+                    ->values();
+            @endphp
+            <div class="space-y-3 overflow-y-auto pr-1">
+                @forelse($portfolioAssets as $asset)
+                    @php
+                        $data  = $assetSentiment[$asset] ?? null;
+                        $score = $data ? (float) $data->avg_score : 0;
+                        $color = $score > 0.1 ? 'neon-green' : ($score < -0.1 ? 'neon-red' : 'white');
+                        $pct   = ($score + 1) / 2 * 100;
+                    @endphp
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-white">{{ $asset }}</span>
+                            <span class="text-xs font-mono text-{{ $color }}">
+                                {{ $score >= 0 ? '+' : '' }}{{ number_format($score, 2) }}
+                            </span>
+                        </div>
+                        <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500 bg-{{ $color }}"
+                                 style="width: {{ number_format($pct, 1) }}%; opacity: 0.8"></div>
+                        </div>
+                        <div class="text-xs text-white/30 mt-0.5">{{ $data?->signal_count ?? 0 }} signals</div>
+                    </div>
+                @empty
+                    <div class="text-xs text-white/30">Keine Portfolio-Daten verfügbar.</div>
+                @endforelse
+            </div>
         </div>
 
     </div>

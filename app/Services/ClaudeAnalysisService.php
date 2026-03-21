@@ -73,7 +73,7 @@ class ClaudeAnalysisService
     /**
      * Run a full analysis cycle over recent signals and portfolio state.
      */
-    public function runAnalysis(array $signals, array $portfolio): ?array
+    public function runAnalysis(array $signals, array $portfolio, array $volumeData = []): ?array
     {
         $allowedAssets = implode(', ', config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']));
 
@@ -107,6 +107,7 @@ Rules:
 - stop_loss_pct: float or null
 - take_profit_pct: float or null
 - Capital preservation first. When in doubt, hold.
+- Use volume data as confirmation signal: high volume (ratio >= 1.3) strengthens a move, low volume weakens it. Do NOT buy solely because of high volume.
 - Only recommend trades with confidence >= 60
 - Maximum one decision per asset
 - For hold decisions, set amount_usd to 0
@@ -116,8 +117,24 @@ Rules:
 - NEVER suggest sell for an asset not listed as sellable above
 SYSTEM;
 
+        // Build volume context string
+        $volumeLines = [];
+        foreach ($volumeData as $symbol => $v) {
+            $ratio   = $v['volume_ratio'];
+            $vol24h  = number_format($v['volume_24h_usd'] / 1_000_000, 1);
+            $avg7d   = number_format($v['volume_7d_avg_usd'] / 1_000_000, 1);
+            $label   = $ratio >= 1.5 ? '🔥 significantly above average'
+                     : ($ratio >= 1.2 ? '↑ above average'
+                     : ($ratio <= 0.7 ? '↓ below average' : 'normal'));
+            $volumeLines[] = "{$symbol}: \${$vol24h}M today vs \${$avg7d}M 7d-avg (ratio {$ratio} – {$label})";
+        }
+        $volumeSection = $volumeLines
+            ? "\n\n## Trading Volume (24h vs 7-day average)\n" . implode("\n", $volumeLines)
+            : '';
+
         $user = "## Current Portfolio\n" . json_encode($portfolio, JSON_PRETTY_PRINT)
-              . "\n\n## Recent Signals (last 6h)\n" . json_encode($signals, JSON_PRETTY_PRINT);
+              . "\n\n## Recent Signals (last 6h)\n" . json_encode($signals, JSON_PRETTY_PRINT)
+              . $volumeSection;
 
         $data = $this->callModel($system, $user);
         if ($data === null) {
@@ -245,24 +262,21 @@ SYSTEM;
             ]);
 
             if (!$result->successful()) {
-                BotLogger::error('claude', "Claude process failed (exit {$result->exitCode()})", [
-                    'exit_code' => $result->exitCode(),
-                    'stderr'    => substr($result->errorOutput(), 0, 300),
-                ]);
+                $stderr = trim(substr($result->errorOutput(), 0, 300));
+                BotLogger::error('claude', "Claude process failed (exit {$result->exitCode()}): {$stderr}");
                 return null;
             }
 
             $envelope = json_decode($result->output(), true);
             if (json_last_error() !== JSON_ERROR_NONE || !isset($envelope['result'])) {
-                BotLogger::error('claude', 'Claude returned unexpected output envelope', [
-                    'raw' => substr($result->output(), 0, 200),
-                ]);
+                $preview = trim(substr($result->output(), 0, 200));
+                BotLogger::error('claude', "Claude unexpected output: {$preview}");
                 return null;
             }
 
             return $this->parseJson($envelope['result']);
         } catch (\Throwable $e) {
-            BotLogger::error('claude', "Claude exception: {$e->getMessage()}", ['exception' => $e->getMessage()]);
+            BotLogger::error('claude', "Claude exception: {$e->getMessage()}");
             return null;
         }
     }

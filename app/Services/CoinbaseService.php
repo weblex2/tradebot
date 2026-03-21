@@ -236,6 +236,49 @@ class CoinbaseService
     }
 
     /**
+     * Fetch 24h volume and 7-day average volume for multiple assets.
+     * Returns ['BTC' => ['volume_24h_usd' => 1234567, 'volume_7d_avg_usd' => 987654, 'volume_ratio' => 1.25], ...]
+     * volume_ratio > 1 means today is above average (e.g. 1.4 = 40% above).
+     */
+    public function getVolumeData(array $assetSymbols): array
+    {
+        $result = [];
+
+        foreach ($assetSymbols as $symbol) {
+            $end   = time();
+            $start = $end - (8 * 86400); // 8 days back for 7-day average + today
+
+            $path     = '/api/v3/brokerage/products/' . urlencode($symbol . '-USD')
+                      . '/candles?start=' . $start . '&end=' . $end . '&granularity=ONE_DAY';
+            $response = $this->request('GET', $path);
+
+            if (!$response || isset($response['error'])) continue;
+
+            $candles = $response['candles'] ?? [];
+            if (count($candles) < 2) continue;
+
+            // Candles are newest-first; volume is in base currency
+            $price   = (float) ($candles[0]['close'] ?? 0);
+            if ($price <= 0) continue;
+
+            $volumes = array_map(fn($c) => (float) $c['volume'], $candles);
+            $today   = $volumes[0];
+            $prev    = array_slice($volumes, 1);
+            $avg7d   = array_sum($prev) / count($prev);
+
+            $result[$symbol] = [
+                'volume_24h_usd'   => (int) round($today * $price),
+                'volume_7d_avg_usd'=> (int) round($avg7d * $price),
+                'volume_ratio'     => $avg7d > 0 ? round($today / $avg7d, 2) : 1.0,
+            ];
+
+            usleep(150000); // stay under rate limit
+        }
+
+        return $result;
+    }
+
+    /**
      * Derive number of decimal places from a Coinbase base_increment string.
      * e.g. "1" → 0, "0.01" → 2, "0.00000001" → 8
      */

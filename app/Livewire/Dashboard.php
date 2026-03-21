@@ -11,6 +11,7 @@ use App\Services\CoinbaseService;
 use App\Services\TradeExecutor;
 use App\Services\TradingSettings;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -156,8 +157,29 @@ class Dashboard extends Component
 
         $expiredPendingCount = TradeDecision::whereDoesntHave('execution')->count();
 
+        $dbStats = Cache::remember('dashboard.db_stats', 300, function () {
+            $dbName = DB::connection()->getDatabaseName();
+            $total  = DB::selectOne("
+                SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
+                FROM information_schema.tables
+                WHERE table_schema = ?", [$dbName]);
+
+            $tables = DB::select("
+                SELECT TABLE_NAME AS table_name,
+                       ROUND((data_length + index_length) / 1024 / 1024, 2) AS size_mb
+                FROM information_schema.tables
+                WHERE table_schema = ?
+                ORDER BY (data_length + index_length) DESC
+                LIMIT 3", [$dbName]);
+
+            return [
+                'total_mb' => $total->size_mb ?? 0,
+                'tables'   => $tables,
+            ];
+        });
+
         return view('livewire.dashboard', compact(
-            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices', 'totalPnl', 'expiredPendingCount'
+            'stats', 'portfolio', 'recentDecisions', 'recentSignals', 'assetSentiment', 'autoTrade', 'currentPrices', 'totalPnl', 'expiredPendingCount', 'dbStats'
         ));
     }
 }

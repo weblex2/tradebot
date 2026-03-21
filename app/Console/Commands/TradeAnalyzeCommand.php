@@ -76,9 +76,20 @@ class TradeAnalyzeCommand extends Command
         $portfolio = $this->getPortfolio($liveConfirmed);
         $this->info('Portfolio snapshot taken.');
 
-        // 3. Run AI analysis
+        // 3. Fetch trading volume for signal assets
+        $signalAssets = array_column($signals, 'asset');
+        $allowedAssets = config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']);
+        $volumeAssets  = array_values(array_intersect($signalAssets, $allowedAssets));
+        $volumeData    = [];
+        if (!empty($volumeAssets)) {
+            $coinbase    = app(\App\Services\CoinbaseService::class);
+            $volumeData  = $coinbase->getVolumeData($volumeAssets);
+            $this->info('Volume data fetched for: ' . implode(', ', array_keys($volumeData)));
+        }
+
+        // 4. Run AI analysis
         $this->info('Calling AI analysis (Claude with Gemini fallback)...');
-        $result = $this->claude->runAnalysis($signals, $portfolio);
+        $result = $this->claude->runAnalysis($signals, $portfolio, $volumeData);
 
         if ($result === null) {
             $this->error('AI analysis failed (both models returned null).');
@@ -97,7 +108,7 @@ class TradeAnalyzeCommand extends Command
             'triggered_by'       => $liveConfirmed ? 'cli:live' : 'cli:paper',
             'portfolio_snapshot' => $portfolio,
             'articles_evaluated' => $articleIds,
-            'signals_summary'    => $signals,
+            'signals_summary'    => ['signals' => $signals, 'volume' => $volumeData],
             'claude_reasoning'   => $result['reasoning'],
         ]);
 
