@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\ErrorFix;
+use App\Services\ErrorFixService;
 use Livewire\Attributes\Layout;
 use App\Services\TradingSettings;
 use Livewire\Component;
@@ -18,6 +19,19 @@ class ErrorFixes extends Component
 
     public function updatingFilterType():    void { $this->resetPage(); }
     public function updatingFilterApplied(): void { $this->resetPage(); }
+
+    public array $applying = [];
+
+    public function applyFix(int $id, ErrorFixService $service): void
+    {
+        $fix = ErrorFix::findOrFail($id);
+
+        $this->applying[$id] = true;
+
+        $service->applyCodeFixWithClaude($fix);
+
+        unset($this->applying[$id]);
+    }
 
     public function deleteAll(): void
     {

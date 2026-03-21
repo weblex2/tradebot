@@ -70,15 +70,15 @@ class ErrorFixService
 You are an expert Laravel/PHP debugger for a crypto trading bot. Analyze the given error log entry and respond with ONLY valid JSON (no markdown).
 
 Response shape:
-{"fix_description":"Short explanation of the error and what the fix does","fix_type":"db|artisan|code|info","fix_command":"SQL query OR artisan command string OR null"}
+{"fix_description":"Short explanation of the error and what the fix does","proposed_solution":"Step-by-step solution a developer should follow to fix this permanently","fix_type":"db|artisan|code|info","fix_command":"SQL query OR artisan command string OR null"}
 
 fix_type rules:
 - "db": fix_command is a raw SQL statement safe to execute (UPDATE/DELETE only, never DROP/TRUNCATE/ALTER)
 - "artisan": fix_command is an artisan command string (e.g. "cache:clear")
-- "code": fix_command is null – code change required, only describe in fix_description
+- "code": fix_command is null – code change required, describe concrete steps in proposed_solution
 - "info": not a real error or already handled, fix_command is null
 
-Keep fix_description under 300 chars. When unsure, use "info" or "code".
+Keep fix_description under 200 chars. In proposed_solution, give concrete actionable steps (file paths, method names, config keys). Max 600 chars. When unsure, use "info" or "code".
 SYSTEM;
 
         $user = "Error log entry:\n\n" . substr($errorMessage, 0, 800);
@@ -108,12 +108,136 @@ SYSTEM;
         $raw  = preg_replace('/```\s*$/m', '', $raw);
         $data = json_decode(trim($raw), true);
 
-        if (!isset($data['fix_description'], $data['fix_type'])) {
+        if (!isset($data['fix_description'], $data['fix_type'], $data['proposed_solution'])) {
             Log::warning('ErrorFixService: invalid Claude response', ['raw' => substr($raw, 0, 200)]);
             return null;
         }
 
         return $data;
+    }
+
+    /**
+     * Let Claude implement a code fix by producing file-level search/replace patches.
+     * Returns a human-readable result string and updates the ErrorFix record.
+     */
+    public function applyCodeFixWithClaude(ErrorFix $fix): string
+    {
+        $base = base_path();
+
+        // Collect candidate PHP files mentioned in the error or proposed solution
+        $candidates = $this->extractFilePaths($fix->error_message . ' ' . ($fix->proposed_solution ?? ''));
+
+        $fileContext = '';
+        foreach ($candidates as $rel) {
+            $abs = $base . '/' . ltrim($rel, '/');
+            if (is_file($abs) && filesize($abs) < 60_000) {
+                $content = file_get_contents($abs);
+                $fileContext .= "\n\n### File: {$rel}\n```php\n" . substr($content, 0, 4000) . "\n```";
+            }
+        }
+
+        $system = <<<SYSTEM
+You are an expert Laravel/PHP developer fixing a bug in a crypto trading bot at /var/www/trading.
+Respond with ONLY a valid JSON array of file patches (no markdown, no explanation).
+
+Response shape:
+[{"file":"app/Services/Foo.php","search":"exact existing code to replace","replace":"new code"}]
+
+Rules:
+- file paths are relative to /var/www/trading (e.g. "app/Services/TradeExecutor.php")
+- "search" must be an EXACT substring of the current file content (whitespace matters)
+- keep changes minimal and targeted — only fix the bug described
+- maximum 3 patches
+- if you cannot produce a safe, targeted patch, return []
+SYSTEM;
+
+        $user = "Error:\n" . substr($fix->error_message, 0, 600)
+            . "\n\nProposed solution:\n" . substr($fix->proposed_solution ?? '', 0, 600)
+            . ($fileContext ? "\n\nRelevant files:" . $fileContext : '');
+
+        $result = Process::timeout(120)->env([
+            'HOME' => '/home/ubuntu',
+            'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+        ])->run([
+            'claude',
+            '--print',
+            '--system-prompt', $system,
+            '--output-format', 'json',
+            '--no-session-persistence',
+            '--model', 'sonnet',
+            $user,
+        ]);
+
+        if (!$result->successful()) {
+            $err = substr($result->errorOutput(), 0, 300);
+            Log::warning('ErrorFixService: applyCodeFix claude failed', ['stderr' => $err]);
+            return "Claude call failed: {$err}";
+        }
+
+        $envelope = json_decode($result->output(), true);
+        $raw      = $envelope['result'] ?? $result->output();
+        $raw      = preg_replace('/^```(?:json)?\s*/m', '', $raw);
+        $raw      = preg_replace('/```\s*$/m', '', $raw);
+        $patches  = json_decode(trim($raw), true);
+
+        if (!is_array($patches) || empty($patches)) {
+            return 'Claude returned no patches. Manual fix required.';
+        }
+
+        $applied = [];
+        $errors  = [];
+
+        foreach ($patches as $patch) {
+            $rel     = $patch['file']    ?? null;
+            $search  = $patch['search']  ?? null;
+            $replace = $patch['replace'] ?? null;
+
+            if (!$rel || !$search || $replace === null) {
+                $errors[] = "Malformed patch (missing fields).";
+                continue;
+            }
+
+            $abs = $base . '/' . ltrim($rel, '/');
+
+            if (!is_file($abs)) {
+                $errors[] = "File not found: {$rel}";
+                continue;
+            }
+
+            $content = file_get_contents($abs);
+
+            if (!str_contains($content, $search)) {
+                $errors[] = "Search string not found in {$rel}.";
+                continue;
+            }
+
+            $new = str_replace($search, $replace, $content, $count);
+            file_put_contents($abs, $new);
+            $applied[] = "{$rel} ({$count} replacement(s))";
+        }
+
+        $fix->update([
+            'fix_applied' => !empty($applied),
+            'fix_result'  => empty($applied)
+                ? 'No patches applied. Errors: ' . implode(' | ', $errors)
+                : 'Patched: ' . implode(', ', $applied) . (empty($errors) ? '' : '. Skipped: ' . implode(' | ', $errors)),
+        ]);
+
+        Log::info('ErrorFixService: code fix applied', ['applied' => $applied, 'errors' => $errors]);
+
+        return $fix->fix_result;
+    }
+
+    // -------------------------------------------------------------------------
+
+    private function extractFilePaths(string $text): array
+    {
+        // Match patterns like app/Services/Foo.php or /var/www/trading/app/...
+        preg_match_all('/(?:app|config|database|routes|resources)\/[\w\/\-\.]+\.php/', $text, $m);
+        $paths = array_unique($m[0]);
+
+        // Also strip absolute prefix if present
+        return array_map(fn($p) => ltrim(str_replace('/var/www/trading/', '', $p), '/'), $paths);
     }
 
     /**

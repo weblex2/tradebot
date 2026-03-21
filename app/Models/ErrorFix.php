@@ -11,6 +11,7 @@ class ErrorFix extends Model
         'error_message',
         'error_context',
         'fix_description',
+        'proposed_solution',
         'fix_command',
         'fix_type',
         'fix_applied',

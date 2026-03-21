@@ -75,6 +75,13 @@
         text-shadow: 0 0 10px rgba(255, 61, 113, 0.4);
     }
 
+    .btn-neon-blue {
+        @apply px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200
+               bg-neon-blue/10 border border-neon-blue/30 text-neon-blue
+               hover:bg-neon-blue/20 hover:border-neon-blue/60;
+        text-shadow: 0 0 10px rgba(0, 180, 216, 0.4);
+    }
+
     .badge-buy {
         @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
                bg-neon-green/10 border border-neon-green/30 text-neon-green;

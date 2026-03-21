@@ -51,6 +51,7 @@
             <div class="glass-card p-5">
                 <div class="flex items-start justify-between gap-4 mb-3">
                     <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs text-white/25 font-mono">#{{ $fix->id }}</span>
                         {{-- Type badge --}}
                         <span class="text-xs px-2 py-0.5 rounded-full font-medium
                             @if($fix->fix_type === 'db') bg-neon-blue/10 text-neon-blue border border-neon-blue/20
@@ -77,6 +78,14 @@
                 {{-- Fix description --}}
                 <p class="text-sm text-white/80 mb-3">{{ $fix->fix_description }}</p>
 
+                {{-- Proposed solution --}}
+                @if($fix->proposed_solution)
+                    <div class="bg-white/[0.03] border border-white/[0.07] rounded-lg p-3 mb-3">
+                        <div class="text-xs text-white/30 mb-1.5">Proposed Solution</div>
+                        <p class="text-xs text-white/65 leading-relaxed whitespace-pre-line">{{ $fix->proposed_solution }}</p>
+                    </div>
+                @endif
+
                 {{-- Fix command --}}
                 @if($fix->fix_command)
                     <div class="bg-black/30 rounded-lg p-3 mb-3">
@@ -87,8 +96,33 @@
 
                 {{-- Fix result --}}
                 @if($fix->fix_result)
-                    <div class="text-xs text-white/40 mb-3">
-                        <span class="text-white/25">Result:</span> {{ $fix->fix_result }}
+                    @php
+                        $isSuccess = $fix->fix_applied;
+                        $resultColor = $isSuccess ? 'border-neon-green/20 bg-neon-green/5 text-neon-green/80' : 'border-yellow-500/20 bg-yellow-500/5 text-yellow-400/80';
+                        $resultIcon  = $isSuccess ? '✓' : '⚠';
+                    @endphp
+                    <div class="rounded-lg border px-3 py-2 mb-3 text-xs font-mono {{ $resultColor }}">
+                        <span class="font-bold mr-1">{{ $resultIcon }}</span>{{ $fix->fix_result }}
+                    </div>
+                @endif
+
+                {{-- Apply Fix button (code-type, not yet applied) --}}
+                @if($fix->fix_type === 'code' && !$fix->fix_applied)
+                    <div class="mt-3">
+                        <button wire:click="applyFix({{ $fix->id }})"
+                                wire:confirm="Claude wird versuchen den Code-Fix automatisch anzuwenden. Fortfahren?"
+                                wire:loading.attr="disabled"
+                                wire:target="applyFix({{ $fix->id }})"
+                                class="btn-neon-blue !py-1.5 !px-4 !text-xs inline-flex items-center gap-2">
+                            <span wire:loading.remove wire:target="applyFix({{ $fix->id }})">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </span>
+                            <span wire:loading wire:target="applyFix({{ $fix->id }})" class="w-3.5 h-3.5 border-2 border-white/30 border-t-neon-blue rounded-full animate-spin"></span>
+                            <span wire:loading.remove wire:target="applyFix({{ $fix->id }})">Apply Fix with Claude</span>
+                            <span wire:loading wire:target="applyFix({{ $fix->id }})">Claude is working…</span>
+                        </button>
                     </div>
                 @endif
 

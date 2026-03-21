@@ -35,9 +35,10 @@ class ErrorAutoFixCommand extends Command
                 continue;
             }
 
-            $fixType    = $analysis['fix_type']    ?? 'info';
-            $fixCmd     = $analysis['fix_command']  ?? null;
-            $fixDesc    = $analysis['fix_description'] ?? 'No description.';
+            $fixType    = $analysis['fix_type']          ?? 'info';
+            $fixCmd     = $analysis['fix_command']        ?? null;
+            $fixDesc    = $analysis['fix_description']    ?? 'No description.';
+            $proposed   = $analysis['proposed_solution']  ?? null;
 
             $this->line("Fix type: {$fixType}");
             $this->line("Fix: {$fixDesc}");
@@ -52,14 +53,15 @@ class ErrorAutoFixCommand extends Command
             }
 
             ErrorFix::create([
-                'error_hash'      => $hash,
-                'error_message'   => $errorMessage,
-                'error_context'   => null,
-                'fix_description' => $fixDesc,
-                'fix_command'     => $fixCmd,
-                'fix_type'        => $fixType,
-                'fix_applied'     => $applied,
-                'fix_result'      => $result,
+                'error_hash'        => $hash,
+                'error_message'     => $errorMessage,
+                'error_context'     => null,
+                'fix_description'   => $fixDesc,
+                'proposed_solution' => $proposed,
+                'fix_command'       => $fixCmd,
+                'fix_type'          => $fixType,
+                'fix_applied'       => $applied,
+                'fix_result'        => $result,
             ]);
 
             $this->info($applied ? '✓ Fix applied and saved.' : '→ Saved for review.');
