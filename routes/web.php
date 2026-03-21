@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\AiChat;
+use App\Livewire\Docs;
 use App\Livewire\BotLogs;
 use App\Livewire\ErrorFixes;
 use App\Livewire\Dashboard as TradebotDashboard;
@@ -38,4 +39,5 @@ Route::middleware(['auth', 'verified'])->prefix('tradebot')->name('tradebot.')->
     Route::get('/settings', Settings::class)->name('settings');
     Route::get('/chat', AiChat::class)->name('chat');
     Route::get('/fixes', ErrorFixes::class)->name('fixes');
+    Route::get('/docs', Docs::class)->name('docs');
 });

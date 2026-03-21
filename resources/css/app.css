@@ -143,6 +143,8 @@
 
     .select-glass {
         appearance: none;
+        -webkit-appearance: none;
+        color-scheme: dark;
         cursor: pointer;
         border-radius: 0.75rem;
         padding: 0.625rem 2.25rem 0.625rem 1rem;
@@ -153,23 +155,24 @@
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 0.75rem center;
-        outline: none;
-        transition: all 0.2s;
+        background-size: 12px;
+        outline: none !important;
+        box-shadow: none !important;
+        transition: border-color 0.2s;
     }
 
-    .select-glass:focus {
+    .select-glass:focus,
+    .select-glass:active,
+    .select-glass:focus-visible {
+        background-color: rgba(255, 255, 255, 0.05) !important;
         border-color: rgba(255, 255, 255, 0.2);
-        background-color: rgba(255, 255, 255, 0.05);
-        outline: none;
+        outline: none !important;
+        box-shadow: none !important;
     }
 
-    .select-glass option {
-        background-color: #0f1628;
-        color: rgba(255, 255, 255, 0.8);
-    }
-
-    .select-glass option {
-        background-color: #0f1628;
+    .select-glass option,
+    .select-glass optgroup {
+        background-color: #0d1220;
         color: rgba(255, 255, 255, 0.8);
     }
 
