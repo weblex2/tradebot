@@ -3,6 +3,7 @@
 ## ⚠ CRITICAL RULES
 
 - **NEVER commit automatically.** Only create a git commit when the user explicitly asks for it (e.g. "mach einen commit", "commit das bitte"). No exceptions.
+- **After every commit:** Summarize the session content into a `.md` file under `docs/sessions/` and extend the trading skill knowledge base accordingly.
 
 ## Project Location & Stack
 
@@ -12,7 +13,7 @@
 - **Frontend:** Blade + Livewire 3 + Tailwind CSS (Glassmorphism theme)
 - **Exchange:** Coinbase Advanced Trade REST API (Ed25519 JWT)
 - **AI:** Anthropic Claude API (`claude-sonnet-4-20250514`)
-- **Notifications:** n8n webhook at `http://192.168.178.107:5678`
+- **Notifications:** ntfy (self-hosted push notifications)
 
 ## Architecture
 
@@ -105,14 +106,11 @@ $liveConfirmed === true                 // --live --confirm-live passed
 
 Failed check → `executions.status = 'failed'`, no retry.
 
-## n8n Integration
+## Notifications (ntfy)
 
-- **When:** After every execution (paper + live)
-- **Webhook:** `N8N_WEBHOOK_URL` in `.env` (default: `http://192.168.178.107:5678/webhook/trade-executed`)
-- **Payload:** `{ execution_id, mode, status, asset_symbol, action, amount_usd, price_at_execution, failure_reason, timestamp }`
-- **n8n instance:** `http://192.168.178.107:5678`
-- n8n handles notifications (Telegram, Slack, email) – Laravel does NOT send these directly
-- **n8n workflow file:** `n8n-trade-notification-workflow.json` in project root
+- **When:** After every execution (paper + live), via `TradeExecutor::notifyNtfy()`
+- **Config:** `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` in `.env`
+- n8n wurde entfernt – ntfy übernimmt alle Push-Notifications direkt
 
 ## Frontend Routes
 
