@@ -29,8 +29,12 @@ class GeminiAnalysisService
             ]);
 
             if (!$result->successful()) {
-                $stderr = $this->filterStderr($result->errorOutput());
-                BotLogger::error('gemini', "Gemini process failed (exit {$result->exitCode()}): {$stderr}");
+                $stderr = $result->errorOutput();
+                if (str_contains($stderr, 'QuotaError') || str_contains($stderr, 'quota')) {
+                    BotLogger::warning('gemini', 'Gemini Quota erschöpft – wird automatisch zurückgesetzt');
+                } else {
+                    BotLogger::error('gemini', "Gemini process failed (exit {$result->exitCode()}): {$this->filterStderr($stderr)}");
+                }
                 return null;
             }
 

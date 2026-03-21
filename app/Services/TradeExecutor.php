@@ -145,12 +145,16 @@ class TradeExecutor
                 }
 
                 // Compare in crypto units to avoid EUR/price fluctuation rounding errors.
+                // Use float price for full precision – integer cents round to 0 for sub-cent coins (e.g. SHIB).
                 // Apply 1% price-drift tolerance: treat available as 1% more than nominal.
-                $priceCents   = $this->coinbase->getPrice($decision->asset_symbol);
-                if (!$priceCents) {
-                    return ['failed', "Could not retrieve price for {$decision->asset_symbol}"];
+                $priceEur = $this->coinbase->getPriceEurFloat($decision->asset_symbol);
+                if ($priceEur === null || $priceEur <= 0) {
+                    // Price unavailable: available balance > 0 is already confirmed above.
+                    // Skip quantity check and let Coinbase reject with INSUFFICIENT_FUND if needed.
+                    BotLogger::info('executor', "Price unavailable for {$decision->asset_symbol}, skipping quantity pre-check (balance confirmed > 0)");
+                    return null;
                 }
-                $neededCrypto    = ($decision->amount_usd / 100) / ($priceCents / 100);
+                $neededCrypto           = ($decision->amount_usd / 100) / $priceEur;
                 $availableWithTolerance = $availableCrypto * 1.01;
 
                 if ($availableWithTolerance < $neededCrypto) {

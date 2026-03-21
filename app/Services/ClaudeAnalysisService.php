@@ -40,7 +40,10 @@ class ClaudeAnalysisService
         $skipped  = $articles->count() - $relevant->count();
 
         if ($relevant->isEmpty()) {
-            return [];
+            // Alle Artikel durch Keyword-Filter aussortiert – kein API-Call nötig.
+            // Null-Mapping zurückgeben, damit ScraperService sie korrekt als is_irrelevant markiert
+            // (leeres [] würde fälschlicherweise als API-Fehler interpretiert).
+            return $articles->mapWithKeys(fn($a) => [$a->id => null])->all();
         }
 
         $results = [];

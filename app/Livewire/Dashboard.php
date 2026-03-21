@@ -135,7 +135,7 @@ class Dashboard extends Component
         $recentDecisions = TradeDecision::with(['analysis', 'execution'])
             ->where('mode', $currentMode)
             ->latest()
-            ->limit(10)
+            ->limit(100)
             ->get();
 
         $decisionAssets = $recentDecisions

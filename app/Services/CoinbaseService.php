@@ -152,7 +152,68 @@ class CoinbaseService
     public function getPrice(string $assetSymbol): ?int
     {
         $prices = $this->getPrices([$assetSymbol]);
-        return $prices[$assetSymbol] ?? null;
+        if (isset($prices[$assetSymbol])) {
+            return $prices[$assetSymbol];
+        }
+
+        // USD pair returned no data (common for small-cap coins on EUR accounts).
+        // Fall back to the EUR pair price directly.
+        return $this->getPriceFromEurPair($assetSymbol);
+    }
+
+    /**
+     * Fetch price as a float in EUR (full precision, no cent rounding).
+     * Essential for sub-cent coins like SHIB where integer cents = 0.
+     * Tries USD pair first (converts via EUR/USD rate), falls back to EUR pair.
+     */
+    public function getPriceEurFloat(string $assetSymbol): ?float
+    {
+        // Try USD pair first via best_bid_ask
+        $query    = 'product_ids=' . urlencode($assetSymbol . '-USD');
+        $response = $this->request('GET', '/api/v3/brokerage/best_bid_ask?' . $query);
+
+        if ($response !== null && !isset($response['error'])) {
+            foreach ($response['pricebooks'] ?? [] as $book) {
+                if (($book['product_id'] ?? '') !== $assetSymbol . '-USD') continue;
+                $bid = (float) ($book['bids'][0]['price'] ?? 0);
+                $ask = (float) ($book['asks'][0]['price'] ?? 0);
+                if ($bid > 0 && $ask > 0) {
+                    $eurUsdRate = $this->getEurUsdRate() ?? 1.0;
+                    return (($bid + $ask) / 2) / $eurUsdRate;
+                }
+            }
+        }
+
+        // Fallback: EUR pair directly
+        $query    = 'product_ids=' . urlencode($assetSymbol . '-EUR');
+        $response = $this->request('GET', '/api/v3/brokerage/best_bid_ask?' . $query);
+
+        if ($response === null || isset($response['error'])) return null;
+
+        foreach ($response['pricebooks'] ?? [] as $book) {
+            if (($book['product_id'] ?? '') !== $assetSymbol . '-EUR') continue;
+            $bid = (float) ($book['bids'][0]['price'] ?? 0);
+            $ask = (float) ($book['asks'][0]['price'] ?? 0);
+            if ($bid > 0 && $ask > 0) {
+                return ($bid + $ask) / 2;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch price in EUR cents directly from the EUR trading pair.
+     * Used as fallback in getPrice() when USD pair is unavailable.
+     */
+    private function getPriceFromEurPair(string $assetSymbol): ?int
+    {
+        $priceFloat = $this->getPriceEurFloat($assetSymbol);
+        if ($priceFloat === null || $priceFloat <= 0) return null;
+
+        $cents = (int) round($priceFloat * 100);
+        // Sub-cent coins (SHIB, etc.) round to 0 – return null so callers use the float method instead
+        return $cents > 0 ? $cents : null;
     }
 
     /**

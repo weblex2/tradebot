@@ -1,6 +1,8 @@
 <?php
 
 use App\Livewire\AiChat;
+use App\Http\Controllers\AiChatStreamController;
+use App\Livewire\Discussions;
 use App\Livewire\Docs;
 use App\Livewire\BotLogs;
 use App\Livewire\ErrorFixes;
@@ -38,6 +40,8 @@ Route::middleware(['auth', 'verified'])->prefix('tradebot')->name('tradebot.')->
     Route::get('/logs', BotLogs::class)->name('logs');
     Route::get('/settings', Settings::class)->name('settings');
     Route::get('/chat', AiChat::class)->name('chat');
+    Route::post('/chat/stream', [AiChatStreamController::class, 'stream'])->name('chat.stream');
     Route::get('/fixes', ErrorFixes::class)->name('fixes');
+    Route::get('/discussions', Discussions::class)->name('discussions');
     Route::get('/docs', Docs::class)->name('docs');
 });
