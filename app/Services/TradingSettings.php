@@ -129,4 +129,26 @@ class TradingSettings
         Setting::set('min_confidence', max(0, min(100, $pct)));
         Cache::forget('trading.min_confidence');
     }
+
+    public static function maxExposurePct(): float
+    {
+        return (float) Setting::get('max_exposure_pct', config('trading.max_exposure_pct', 10));
+    }
+
+    public static function setMaxExposurePct(float $pct): void
+    {
+        Setting::set('max_exposure_pct', max(1, min(100, $pct)));
+        Cache::forget('trading.max_exposure_pct');
+    }
+
+    public static function decisionTtlMinutes(): int
+    {
+        return (int) Setting::get('decision_ttl_minutes', config('trading.decision_ttl_minutes', 30));
+    }
+
+    public static function setDecisionTtlMinutes(int $minutes): void
+    {
+        Setting::set('decision_ttl_minutes', max(5, $minutes));
+        Cache::forget('trading.decision_ttl_minutes');
+    }
 }

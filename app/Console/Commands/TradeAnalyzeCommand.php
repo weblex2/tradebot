@@ -188,7 +188,7 @@ class TradeAnalyzeCommand extends Command
                 'stop_loss_pct'   => $d['stop_loss_pct'] ?? null,
                 'take_profit_pct' => $d['take_profit_pct'] ?? null,
                 'rationale'       => $d['rationale'] ?? null,
-                'expires_at'      => now()->addMinutes(config('trading.decision_ttl_minutes', 30)),
+                'expires_at'      => now()->addMinutes(TradingSettings::decisionTtlMinutes()),
             ]);
 
             $this->line("  [{$decision->action}] {$assetSymbol} confidence={$decision->confidence}% amount=\${$decision->amountInDollars()}");

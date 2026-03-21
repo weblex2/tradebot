@@ -8,13 +8,15 @@ use Livewire\Component;
 #[Layout('layouts.tradebot', ['title' => 'Settings'])]
 class Settings extends Component
 {
-    public string $primaryModel  = 'claude';
-    public string $fallbackModel = 'gemini';
-    public string $timezone      = 'UTC';
-    public int    $minTradeUsd   = 1;
-    public int    $maxTradeUsd   = 500;
-    public int    $minConfidence = 60;
-    public int    $minReserveUsd = 200;
+    public string $primaryModel       = 'claude';
+    public string $fallbackModel      = 'gemini';
+    public string $timezone           = 'UTC';
+    public int    $minTradeUsd        = 1;
+    public int    $maxTradeUsd        = 500;
+    public int    $minConfidence      = 60;
+    public int    $minReserveUsd      = 200;
+    public float  $maxExposurePct     = 10.0;
+    public int    $decisionTtlMinutes = 60;
 
     public const MODEL_OPTIONS = [
         'claude' => 'Claude (Sonnet)',
@@ -63,13 +65,15 @@ class Settings extends Component
 
     public function mount(): void
     {
-        $this->primaryModel  = TradingSettings::primaryModel();
-        $this->fallbackModel = TradingSettings::fallbackModel();
-        $this->timezone      = TradingSettings::timezone();
-        $this->minTradeUsd   = TradingSettings::minTradeUsd();
-        $this->maxTradeUsd   = TradingSettings::maxTradeUsd();
-        $this->minConfidence = TradingSettings::minConfidence();
-        $this->minReserveUsd = (int) TradingSettings::minReserve();
+        $this->primaryModel       = TradingSettings::primaryModel();
+        $this->fallbackModel      = TradingSettings::fallbackModel();
+        $this->timezone           = TradingSettings::timezone();
+        $this->minTradeUsd        = TradingSettings::minTradeUsd();
+        $this->maxTradeUsd        = TradingSettings::maxTradeUsd();
+        $this->minConfidence      = TradingSettings::minConfidence();
+        $this->minReserveUsd      = (int) TradingSettings::minReserve();
+        $this->maxExposurePct     = TradingSettings::maxExposurePct();
+        $this->decisionTtlMinutes = TradingSettings::decisionTtlMinutes();
     }
 
     public function saveModels(): void
@@ -88,10 +92,12 @@ class Settings extends Component
     public function saveRiskParams(): void
     {
         $this->validate([
-            'minTradeUsd'   => ['required', 'integer', 'min:1', 'max:10000'],
-            'maxTradeUsd'   => ['required', 'integer', 'min:1', 'max:100000'],
-            'minConfidence' => ['required', 'integer', 'min:0', 'max:100'],
-            'minReserveUsd' => ['required', 'integer', 'min:0'],
+            'minTradeUsd'        => ['required', 'integer', 'min:1', 'max:10000'],
+            'maxTradeUsd'        => ['required', 'integer', 'min:1', 'max:100000'],
+            'minConfidence'      => ['required', 'integer', 'min:0', 'max:100'],
+            'minReserveUsd'      => ['required', 'integer', 'min:0'],
+            'maxExposurePct'     => ['required', 'numeric', 'min:1', 'max:100'],
+            'decisionTtlMinutes' => ['required', 'integer', 'min:5', 'max:1440'],
         ]);
 
         if ($this->minTradeUsd > $this->maxTradeUsd) {
@@ -103,6 +109,8 @@ class Settings extends Component
         TradingSettings::setMaxTradeUsd($this->maxTradeUsd);
         TradingSettings::setMinConfidence($this->minConfidence);
         TradingSettings::setMinReserve($this->minReserveUsd);
+        TradingSettings::setMaxExposurePct($this->maxExposurePct);
+        TradingSettings::setDecisionTtlMinutes($this->decisionTtlMinutes);
 
         $this->dispatch('saved');
     }

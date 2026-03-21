@@ -78,7 +78,7 @@ class ClaudeAnalysisService
         $allowedAssets = implode(', ', config('trading.allowed_assets', ['BTC', 'ETH', 'SOL', 'XRP']));
 
         $cashEur     = (float) ($portfolio['cash_eur'] ?? 0);
-        $maxTradeEur = (float) config('trading.max_trade_usd', 500);
+        $maxTradeEur = (float) TradingSettings::maxTradeUsd();
         $minReserve  = TradingSettings::minReserve();
         $spendable   = max(0, round($cashEur - $minReserve, 2));
 
