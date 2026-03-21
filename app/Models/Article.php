@@ -12,13 +12,14 @@ class Article extends Model
 
     protected $fillable = [
         'source_id', 'url', 'title', 'content', 'content_hash',
-        'published_at', 'sentiment_score', 'is_processed',
+        'published_at', 'sentiment_score', 'is_processed', 'is_irrelevant',
     ];
 
     protected $casts = [
         'published_at'    => 'datetime',
         'sentiment_score' => 'decimal:3',
         'is_processed'    => 'boolean',
+        'is_irrelevant'   => 'boolean',
     ];
 
     public function source(): BelongsTo

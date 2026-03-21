@@ -136,7 +136,7 @@ SYSTEM;
               . "\n\n## Recent Signals (last 6h)\n" . json_encode($signals, JSON_PRETTY_PRINT)
               . $volumeSection;
 
-        $data = $this->callModel($system, $user);
+        $data = $this->callModel($system, $user, 'trade analysis');
         if ($data === null) {
             return null;
         }
@@ -183,8 +183,12 @@ SYSTEM;
 
         $user = json_encode($items, JSON_UNESCAPED_UNICODE);
 
-        $data = $this->callModel($system, $user);
-        if (!is_array($data)) return [];
+        $task = 'score ' . $batch->count() . ' articles';
+        $data = $this->callModel($system, $user, $task);
+        if (!is_array($data)) {
+            BotLogger::warning('claude', 'Scoring batch failed — no results for ' . $batch->count() . ' articles', ['ids' => $batch->pluck('id')->toArray()]);
+            return [];
+        }
 
         // Normalise: handle both indexed array and single object
         if (isset($data['id'])) {
@@ -215,38 +219,39 @@ SYSTEM;
         return false;
     }
 
-    private function callModel(string $system, string $user): ?array
+    private function callModel(string $system, string $user, string $task = ''): ?array
     {
         $primary  = TradingSettings::primaryModel();
         $fallback = TradingSettings::fallbackModel();
 
-        $data = $this->callByName($primary, $system, $user);
+        $data = $this->callByName($primary, $system, $user, $task);
 
         if ($data === null && $fallback !== 'none' && $fallback !== $primary) {
-            BotLogger::info($primary, "Primary model ({$primary}) failed, trying fallback ({$fallback})...");
-            $data = $this->callByName($fallback, $system, $user);
+            BotLogger::warning($primary, "{$primary} failed for [{$task}], trying fallback: {$fallback}");
+            $data = $this->callByName($fallback, $system, $user, $task);
 
             if ($data !== null) {
-                BotLogger::info($fallback, "Fallback ({$fallback}) successful");
+                BotLogger::info($fallback, "{$fallback} fallback succeeded for [{$task}]");
             } else {
-                BotLogger::error($fallback, "Fallback ({$fallback}) also failed");
+                BotLogger::error($fallback, "Both {$primary} and {$fallback} failed for [{$task}]");
             }
         }
 
         return $data;
     }
 
-    private function callByName(string $model, string $system, string $user): ?array
+    private function callByName(string $model, string $system, string $user, string $task = ''): ?array
     {
         return match ($model) {
-            'claude' => $this->callClaude($system, $user),
-            'gemini' => $this->gemini->callGemini($system, $user),
+            'claude' => $this->callClaude($system, $user, $task),
+            'gemini' => $this->gemini->callGemini($system, $user, $task),
             default  => null,
         };
     }
 
-    private function callClaude(string $system, string $user): ?array
+    private function callClaude(string $system, string $user, string $task = ''): ?array
     {
+        BotLogger::info('claude', "Claude › {$task}");
         try {
             $result = Process::timeout(300)->env([
                 'HOME' => '/home/ubuntu',

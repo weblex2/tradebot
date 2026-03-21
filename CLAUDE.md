@@ -3,6 +3,7 @@
 ## ⚠ CRITICAL RULES
 
 - **NEVER commit automatically.** Only create a git commit when the user explicitly asks for it (e.g. "mach einen commit", "commit das bitte"). No exceptions.
+- **NEVER push automatically.** Only push to git when the user explicitly asks for it. No exceptions.
 - **After every commit:** Summarize the session content into a `.md` file under `docs/sessions/` and extend the trading skill knowledge base accordingly.
 
 ## Project Location & Stack

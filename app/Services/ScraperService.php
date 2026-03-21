@@ -48,9 +48,26 @@ class ScraperService
                 }
             }
 
-            // Score all new articles in batches (one Claude call per 10 articles)
+            // Score new articles — cap at 30 per run to avoid job timeouts
+            // Remaining unprocessed articles are picked up on the next scrape cycle
             if ($newArticles->isNotEmpty()) {
-                $this->scoreArticles($newArticles);
+                $toScore = $newArticles->take(30);
+                if ($toScore->count() < $newArticles->count()) {
+                    BotLogger::info('scraper', "Scoring capped at 30/{$newArticles->count()} articles for {$source->name} — rest pending", [], $source->id);
+                }
+                $this->scoreArticles($toScore, $source->name);
+            } else {
+                // No new articles — catch up on unprocessed ones from this source (max 20)
+                $pending = Article::where('source_id', $source->id)
+                    ->where('is_processed', false)
+                    ->oldest()
+                    ->limit(20)
+                    ->get();
+
+                if ($pending->isNotEmpty()) {
+                    BotLogger::info('scraper', "Scoring {$pending->count()} pending articles for {$source->name}", [], $source->id);
+                    $this->scoreArticles($pending, $source->name);
+                }
             }
 
             $source->update(['last_scraped_at' => now()]);
@@ -61,32 +78,21 @@ class ScraperService
         return $articlesAdded;
     }
 
-    private function scoreArticles(\Illuminate\Support\Collection $articles): void
+    private function scoreArticles(\Illuminate\Support\Collection $articles, string $sourceName = ''): void
     {
         $results = $this->claude->scoreArticles($articles);
+
+        if (empty($results)) {
+            BotLogger::warning('scraper', "Scoring returned no results for {$sourceName} ({$articles->count()} articles) — API failure? Articles left as unprocessed.", ['source' => $sourceName, 'count' => $articles->count()]);
+            return;
+        }
 
         foreach ($articles as $article) {
             $result = $results[$article->id] ?? null;
 
             if ($result === null) {
-                // If result is null, it means either:
-                // 1. The article was skipped because it was irrelevant (keyword filter)
-                // 2. Both Claude and Gemini failed (timeout, limit, etc.)
-                // In case of #2, we should NOT mark as processed so we can retry later.
-                
-                // Check if it was skipped due to relevance filter inside the service
-                // (In our current service, we don't know for sure here, but we can assume 
-                // that if BOTH failed, we want to try again. If it's truly irrelevant, 
-                // it might keep failing, so we'll add a check.)
-                
-                // Let's be smart: If we got NO results for the WHOLE batch, it's likely an API failure.
-                if (empty($results)) {
-                    continue; // Leave is_processed = false
-                }
-                
-                // If some articles in the batch got results but this one didn't, 
-                // it's likely irrelevant (skipped by keywords).
-                $article->update(['is_processed' => true]);
+                // Article was in the batch but got no result → filtered as irrelevant by keyword check
+                $article->update(['is_processed' => true, 'is_irrelevant' => true]);
                 continue;
             }
 

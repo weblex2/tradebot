@@ -117,32 +117,46 @@
     {{-- Main content --}}
     <main class="flex-1 overflow-y-auto min-w-0">
         {{-- Top bar --}}
-        <header class="sticky top-0 z-10 px-4 sm:px-8 py-4 border-b border-white/[0.06] bg-black/20 flex items-center justify-between header-blur">
-            <div class="flex items-center gap-3">
-                {{-- Hamburger (mobile only) --}}
-                <button
-                    x-on:click="sidebarOpen = !sidebarOpen"
-                    class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
-                <div>
-                    <h1 class="text-lg font-semibold text-white">{{ $title ?? 'Dashboard' }}</h1>
-                    <p class="text-xs text-white/30 mt-0.5 hidden sm:block">{{ now()->format('D, d M Y · H:i') }} UTC</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                {{-- Trading mode toggle --}}
-                @livewire('trading-mode-toggle')
-
-                {{-- User --}}
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-neon-green/20 border border-neon-green/30 flex items-center justify-center text-xs font-bold text-neon-green">
-                        {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
+        <header class="sticky top-0 z-10 px-4 sm:px-8 py-4 border-b border-white/[0.06] bg-black/20 header-blur">
+            {{-- Row 1: Title + controls --}}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    {{-- Hamburger (mobile only) --}}
+                    <button
+                        x-on:click="sidebarOpen = !sidebarOpen"
+                        class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                    <div>
+                        <h1 class="text-lg font-semibold text-white">{{ $title ?? 'Dashboard' }}</h1>
+                        <p class="text-xs text-white/30 mt-0.5 hidden sm:block">{{ now()->format('D, d M Y · H:i') }} UTC</p>
                     </div>
                 </div>
+                <div class="flex items-center gap-3">
+                    {{-- System status (desktop only in row 1) --}}
+                    <div class="hidden sm:flex items-center gap-3">
+                        @livewire('system-status')
+                        <div class="w-px h-4 bg-white/10"></div>
+                    </div>
+
+                    {{-- Trading mode toggle --}}
+                    @livewire('trading-mode-toggle')
+
+                    {{-- User --}}
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-neon-green/20 border border-neon-green/30 flex items-center justify-center text-xs font-bold text-neon-green">
+                            {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Row 2: System status (mobile only) --}}
+            <div class="flex sm:hidden items-center gap-3 mt-2 pt-2 border-t border-white/[0.06]">
+                @livewire('system-status')
             </div>
         </header>
 

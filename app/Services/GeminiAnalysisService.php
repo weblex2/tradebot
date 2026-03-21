@@ -9,12 +9,12 @@ class GeminiAnalysisService
     /**
      * Call the Gemini CLI as a fallback for Claude.
      */
-    public function callGemini(string $system, string $user): ?array
+    public function callGemini(string $system, string $user, string $task = ''): ?array
     {
         try {
             $prompt = "SYSTEM INSTRUCTION: " . $system . "\n\nUSER INPUT: " . $user;
-            
-            BotLogger::info('gemini', 'Calling gemini CLI (dynamic user)...', ['prompt_len' => strlen($prompt)]);
+
+            BotLogger::info('gemini', "Gemini › " . ($task ?: 'request') . " (" . strlen($prompt) . " chars)");
 
             $home = $_SERVER['HOME'] ?? (is_dir('/home/ubuntu') ? '/home/ubuntu' : '/root');
 
