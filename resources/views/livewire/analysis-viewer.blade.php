@@ -71,7 +71,10 @@
                 <div class="space-y-2">
                     @foreach($selected->tradeDecisions as $d)
                     <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                        <span class="font-bold text-white w-10">{{ $d->asset_symbol }}</span>
+                        <div class="flex items-center gap-2 w-16 shrink-0">
+                            <x-asset-icon :symbol="$d->asset_symbol" :size="5" />
+                            <span class="font-bold text-white">{{ $d->asset_symbol }}</span>
+                        </div>
                         <span class="badge-{{ $d->action }}">{{ strtoupper($d->action) }}</span>
                         <div class="flex-1 min-w-0">
                             <div class="text-xs text-white/50 line-clamp-2">{{ $d->rationale }}</div>

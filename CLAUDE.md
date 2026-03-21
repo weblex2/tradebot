@@ -5,6 +5,7 @@
 - **NEVER commit automatically.** Only create a git commit when the user explicitly asks for it (e.g. "mach einen commit", "commit das bitte"). No exceptions.
 - **NEVER push automatically.** Only push to git when the user explicitly asks for it. No exceptions.
 - **After every commit:** Summarize the session content into a `.md` file under `docs/sessions/` and extend the trading skill knowledge base accordingly.
+- **ALL 26 tradeable assets matter — not just BTC/ETH/SOL/XRP.** Whenever checking, verifying, or building anything related to assets, always consider the full list: BTC, ETH, SOL, XRP, DOGE, SHIB, APE, ADA, AVAX, LINK, DOT, LTC, UNI, ATOM, FIL, ALGO, MANA, CRV, GRT, BAT, CHZ, MINA, SNX, XLM, XTZ, 1INCH. Never narrow scope to just the 4 default allowed_assets without being explicitly told to.
 
 ## Project Location & Stack
 

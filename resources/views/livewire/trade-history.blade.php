@@ -83,7 +83,12 @@
                 @forelse($executions as $exec)
                 <tr>
                     <td class="font-mono text-white/30 text-xs">#{{ $exec->id }}</td>
-                    <td class="font-bold text-white">{{ $exec->asset_symbol }}</td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <x-asset-icon :symbol="$exec->asset_symbol" :size="5" />
+                            <span class="font-bold text-white">{{ $exec->asset_symbol }}</span>
+                        </div>
+                    </td>
                     <td><span class="badge-{{ $exec->action }}">{{ strtoupper($exec->action) }}</span></td>
                     <td><span class="badge-{{ $exec->mode }}">{{ $exec->mode }}</span></td>
                     <td>

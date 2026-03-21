@@ -29,6 +29,7 @@
             <option value="">All Channels</option>
             <option value="scraper">Scraper</option>
             <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
             <option value="executor">Executor</option>
             <option value="coinbase">Coinbase</option>
             <option value="scheduler">Scheduler</option>
@@ -64,6 +65,7 @@
                         $channelColor = match($log->channel) {
                             'scraper'      => 'text-neon-green',
                             'claude'       => 'text-purple-400',
+                            'gemini'       => 'text-teal-400',
                             'executor'     => 'text-yellow-400',
                             'coinbase'     => 'text-neon-blue',
                             'order_status' => 'text-neon-blue',
@@ -76,6 +78,7 @@
                             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors {{ $log->context ? 'cursor-pointer' : '' }}"
                             @if($log->context) @click="open = !open" @endif
                         >
+                            <span class="text-xs text-white/20 font-mono shrink-0 w-10 text-right">#{{ $log->id }}</span>
                             <span class="text-xs text-white/25 font-mono whitespace-nowrap w-28 shrink-0" title="{{ $log->created_at->local()->format('Y-m-d H:i:s') }}">
                                 {{ $log->created_at->local()->format('d.m H:i:s') }}
                             </span>
@@ -98,7 +101,7 @@
                             @endif
                         </div>
                         @if($log->context)
-                            <div x-show="open" x-transition class="ml-44 mr-4 mb-1 px-3 py-2 rounded-lg bg-black/30 border border-white/[0.06]">
+                            <div x-show="open" x-transition class="ml-56 mr-4 mb-1 px-3 py-2 rounded-lg bg-black/30 border border-white/[0.06]">
                                 <pre class="text-xs text-white/50 font-mono overflow-x-auto whitespace-pre-wrap">{{ json_encode($log->context, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </div>
                         @endif

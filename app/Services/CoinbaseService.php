@@ -304,18 +304,16 @@ class CoinbaseService
         //   BUY  → EUR pair + quote_size in EUR  (cash is held in EUR)
         //   SELL → USD pair + base_size in crypto (more assets have USD pairs)
         if (strtoupper($side) === 'SELL') {
-            $productId  = $assetSymbol . '-USD';
-            $product    = $this->getProductInfo($assetSymbol);
-            if (!$product || ($product['price'] ?? 0) <= 0) {
-                Log::error('CoinbaseService::placeMarketOrder: could not fetch product info for sell', ['asset' => $assetSymbol]);
+            $productId  = $assetSymbol . '-EUR';
+            $eurProduct = $this->request('GET', '/api/v3/brokerage/products/' . urlencode($productId));
+            if (!$eurProduct || isset($eurProduct['error']) || ($eurProduct['price'] ?? 0) <= 0) {
+                Log::error('CoinbaseService::placeMarketOrder: could not fetch EUR product info for sell', ['asset' => $assetSymbol]);
                 return null;
             }
-            // Convert EUR cents → USD, then ÷ USD price = crypto quantity
-            $eurUsdRate = $this->getEurUsdRate() ?? 1.0;
-            $amountUsd  = ($amountCents / 100) * $eurUsdRate;
-            $decimals   = $this->decimalPlacesFromIncrement($product['base_increment'] ?? '0.00000001');
-            $baseSize   = number_format($amountUsd / $product['price'], $decimals, '.', '');
-            $orderSize  = ['base_size' => $baseSize];
+            $priceEur  = (float) $eurProduct['price'];
+            $decimals  = $this->decimalPlacesFromIncrement($eurProduct['base_increment'] ?? '0.001');
+            $baseSize  = number_format(($amountCents / 100) / $priceEur, $decimals, '.', '');
+            $orderSize = ['base_size' => $baseSize];
         } else {
             $productId = $assetSymbol . '-EUR';
             $orderSize = ['quote_size' => number_format($amountCents / 100, 2, '.', '')];

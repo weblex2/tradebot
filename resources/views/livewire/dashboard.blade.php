@@ -98,6 +98,16 @@
                 <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Recent Decisions</h2>
 
                 <div class="flex items-center gap-3">
+                {{-- Test Trade Button --}}
+                <button wire:click="createTestTrade"
+                        wire:confirm="Test-Trade erstellen: SOL verkaufen für €1?"
+                        class="text-xs text-white/30 hover:text-neon-blue transition-colors inline-flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Test Trade
+                </button>
+
                 {{-- Clear pending decisions (no execution) --}}
                 @if($expiredPendingCount > 0)
                     <button wire:click="deleteExpiredDecisions"
@@ -154,7 +164,12 @@
                                         <div class="text-white/20">#{{ $d->execution->id }}</div>
                                     @endif
                                 </td>
-                                <td class="font-medium text-white">{{ $d->asset_symbol }}</td>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <x-asset-icon :symbol="$d->asset_symbol" :size="5" />
+                                        <span class="font-medium text-white">{{ $d->asset_symbol }}</span>
+                                    </div>
+                                </td>
                                 <td>
                                     <span class="text-xs px-2 py-0.5 rounded-full
                                         @if($d->action === 'buy') bg-neon-green/10 text-neon-green border border-neon-green/20
@@ -229,8 +244,9 @@
                                         </div>
                                     @elseif(!$autoTrade)
                                         <div class="flex items-center gap-1.5 flex-wrap">
-                                            <button wire:click="executeDecision({{ $d->id }})" class="btn-neon-green !py-1 !px-3 !text-xs inline-flex items-center gap-1">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            <button wire:click="executeDecision({{ $d->id }})" wire:loading.attr="disabled" wire:target="executeDecision({{ $d->id }})" class="btn-neon-green !py-1 !px-3 !text-xs inline-flex items-center gap-1">
+                                                <svg wire:loading.remove wire:target="executeDecision({{ $d->id }})" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                <svg wire:loading wire:target="executeDecision({{ $d->id }})" class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                                                 Execute
                                             </button>
                                             <button wire:click="denyDecision({{ $d->id }})" wire:confirm="Delete this decision?" class="btn-neon-red !py-1 !px-3 !text-xs inline-flex items-center gap-1">
@@ -320,9 +336,14 @@
                         @php $score = (float) $signal->signal_score; @endphp
                         <tr class="border-b border-white/[0.08] hover:bg-white/[0.04] transition-colors">
                             {{-- Asset --}}
-                            <td class="py-2.5 pr-3 font-bold font-mono text-xs
-                                @if($score > 0.1) neon-text-green @elseif($score < -0.1) neon-text-red @else text-white/50 @endif">
-                                {{ $signal->asset_symbol }}
+                            <td class="py-2.5 pr-3">
+                                <div class="flex items-center gap-1.5">
+                                    <x-asset-icon :symbol="$signal->asset_symbol" :size="4" />
+                                    <span class="font-bold font-mono text-xs
+                                        @if($score > 0.1) neon-text-green @elseif($score < -0.1) neon-text-red @else text-white/50 @endif">
+                                        {{ $signal->asset_symbol }}
+                                    </span>
+                                </div>
                             </td>
                             {{-- Typ (ab sm) --}}
                             <td class="py-2.5 pr-3">
@@ -392,7 +413,10 @@
                     @endphp
                     <div class="bg-white/[0.04] border border-white/[0.08] rounded-xl p-4 hover:bg-white/[0.07] transition-colors">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-bold text-white">{{ $asset['currency'] }}</span>
+                            <div class="flex items-center gap-2">
+                                <x-asset-icon :symbol="$asset['currency']" :size="6" />
+                                <span class="text-sm font-bold text-white">{{ $asset['currency'] }}</span>
+                            </div>
                             <span class="text-xs font-mono text-white/40">
                                 {{ round($asset['allocation'] * 100, 1) }}%
                             </span>

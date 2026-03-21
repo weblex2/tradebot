@@ -73,6 +73,30 @@ class Dashboard extends Component
         $decision->delete();
     }
 
+    public function createTestTrade(): void
+    {
+        $analysis = Analysis::create([
+            'triggered_by'      => 'manual_test',
+            'portfolio_snapshot' => [],
+            'articles_evaluated' => [],
+            'signals_summary'   => [],
+            'claude_reasoning'  => 'Manual test trade: sell SOL €1',
+        ]);
+
+        TradeDecision::create([
+            'analysis_id'  => $analysis->id,
+            'mode'         => TradingSettings::mode(),
+            'asset_symbol' => 'SOL',
+            'action'       => 'sell',
+            'confidence'   => 100,
+            'amount_usd'   => 100, // €1 in cents
+            'rationale'    => 'Manual test trade',
+            'expires_at'   => now()->addMinutes(30),
+        ]);
+
+        Cache::forget('dashboard.stats');
+    }
+
     public function deleteExpiredDecisions(): void
     {
         TradeDecision::whereDoesntHave('execution')->delete();
