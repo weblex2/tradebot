@@ -3,6 +3,7 @@ namespace App\Livewire;
 
 use App\Models\BotLog;
 use Livewire\Attributes\Layout;
+use App\Services\TradingSettings;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -37,7 +38,7 @@ class BotLogs extends Component
             $query->where('created_at', '>=', now()->subHours((int) $this->filterSince));
         }
 
-        $logs = $query->paginate(50);
+        $logs = $query->paginate(TradingSettings::perPage());
 
         $since = now()->subHours(24);
         $counts = [

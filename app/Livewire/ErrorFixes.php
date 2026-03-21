@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\ErrorFix;
 use Livewire\Attributes\Layout;
+use App\Services\TradingSettings;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -31,7 +32,7 @@ class ErrorFixes extends Component
         if ($this->filterType)    $query->where('fix_type', $this->filterType);
         if ($this->filterApplied !== '') $query->where('fix_applied', (bool) $this->filterApplied);
 
-        $fixes = $query->paginate(20);
+        $fixes = $query->paginate(TradingSettings::perPage());
 
         $stats = [
             'total'    => ErrorFix::count(),

@@ -17,6 +17,7 @@ class Settings extends Component
     public int    $minReserveUsd      = 200;
     public float  $maxExposurePct     = 10.0;
     public int    $decisionTtlMinutes = 60;
+    public int    $perPage            = 25;
 
     public const MODEL_OPTIONS = [
         'claude' => 'Claude (Sonnet)',
@@ -74,6 +75,7 @@ class Settings extends Component
         $this->minReserveUsd      = (int) TradingSettings::minReserve();
         $this->maxExposurePct     = TradingSettings::maxExposurePct();
         $this->decisionTtlMinutes = TradingSettings::decisionTtlMinutes();
+        $this->perPage            = TradingSettings::perPage();
     }
 
     public function saveModels(): void
@@ -98,6 +100,7 @@ class Settings extends Component
             'minReserveUsd'      => ['required', 'integer', 'min:0'],
             'maxExposurePct'     => ['required', 'numeric', 'min:1', 'max:100'],
             'decisionTtlMinutes' => ['required', 'integer', 'min:5', 'max:1440'],
+            'perPage'            => ['required', 'integer', 'min:5', 'max:200'],
         ]);
 
         if ($this->minTradeUsd > $this->maxTradeUsd) {
@@ -111,6 +114,7 @@ class Settings extends Component
         TradingSettings::setMinReserve($this->minReserveUsd);
         TradingSettings::setMaxExposurePct($this->maxExposurePct);
         TradingSettings::setDecisionTtlMinutes($this->decisionTtlMinutes);
+        TradingSettings::setPerPage($this->perPage);
 
         $this->dispatch('saved');
     }

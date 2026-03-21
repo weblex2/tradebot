@@ -1,8 +1,14 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     {{-- Analysis List — auf Mobile versteckt wenn Detail geöffnet, auf md immer sichtbar --}}
     <div class="glass-card overflow-hidden {{ $selectedId ? 'hidden md:block' : 'block' }}">
-        <div class="p-4 border-b border-white/[0.06]">
+        <div class="p-4 border-b border-white/[0.06] flex items-center justify-between gap-3">
             <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Analysis Runs</h3>
+            <button wire:click="$toggle('showAll')" class="flex items-center gap-2.5 group">
+                <span class="text-xs font-medium {{ $showAll ? 'text-neon-blue' : 'text-white/40' }} transition-colors">alle anzeigen</span>
+                <div class="relative w-10 h-5 rounded-full transition-colors duration-300 {{ $showAll ? 'bg-neon-blue/30 border border-neon-blue/50' : 'bg-white/10 border border-white/20' }}">
+                    <div class="absolute top-0.5 w-4 h-4 rounded-full shadow transition-all duration-300 {{ $showAll ? 'left-5 bg-neon-blue' : 'left-0.5 bg-white/40' }}"></div>
+                </div>
+            </button>
         </div>
         <div class="divide-y divide-white/[0.05]">
             @forelse($analyses as $analysis)

@@ -29,7 +29,7 @@ class GeminiAnalysisService
             ]);
 
             if (!$result->successful()) {
-                $stderr = trim(substr($result->errorOutput(), 0, 500));
+                $stderr = $this->filterStderr($result->errorOutput());
                 BotLogger::error('gemini', "Gemini process failed (exit {$result->exitCode()}): {$stderr}");
                 return null;
             }
@@ -48,6 +48,31 @@ class GeminiAnalysisService
             BotLogger::error('gemini', "Gemini exception: {$e->getMessage()}");
             return null;
         }
+    }
+
+    private function filterStderr(string $stderr): string
+    {
+        $noise = [
+            'YOLO mode is enabled',
+            'All tool calls will be automatically approved',
+            'Keychain initialization encountered an error',
+            'libsecret-1.so.0',
+            'Using FileKeychain fallback',
+            'cannot open shared object file',
+        ];
+
+        $lines = array_filter(
+            explode("\n", $stderr),
+            function (string $line) use ($noise): bool {
+                foreach ($noise as $pattern) {
+                    if (str_contains($line, $pattern)) return false;
+                }
+                return trim($line) !== '';
+            }
+        );
+
+        $filtered = trim(implode("\n", $lines));
+        return $filtered !== '' ? substr($filtered, 0, 500) : substr(trim($stderr), 0, 500);
     }
 
     private function parseJson(string $raw): ?array

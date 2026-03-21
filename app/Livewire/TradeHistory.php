@@ -4,6 +4,7 @@ namespace App\Livewire;
 use App\Models\Execution;
 use App\Models\TradeDecision;
 use Livewire\Attributes\Layout;
+use App\Services\TradingSettings;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -44,7 +45,7 @@ class TradeHistory extends Component
         if ($this->filterStatus) $query->where('status', $this->filterStatus);
         if ($this->filterAsset)  $query->where('asset_symbol', $this->filterAsset);
 
-        $executions = $query->paginate(25);
+        $executions = $query->paginate(TradingSettings::perPage());
 
         $stats = [
             'total'     => Execution::count(),

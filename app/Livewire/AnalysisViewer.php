@@ -3,6 +3,7 @@ namespace App\Livewire;
 
 use App\Models\Analysis;
 use Livewire\Attributes\Layout;
+use App\Services\TradingSettings;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -12,6 +13,12 @@ class AnalysisViewer extends Component
     use WithPagination;
 
     public ?int $selectedId = null;
+    public bool $showAll    = false;
+
+    public function updatedShowAll(): void
+    {
+        $this->resetPage();
+    }
 
     public function select(int $id): void
     {
@@ -21,8 +28,9 @@ class AnalysisViewer extends Component
     public function render()
     {
         $analyses = Analysis::withCount('tradeDecisions')
+            ->when(!$this->showAll, fn($q) => $q->has('tradeDecisions'))
             ->latest()
-            ->paginate(15);
+            ->paginate(TradingSettings::perPage());
 
         $selected = $this->selectedId
             ? Analysis::with('tradeDecisions.execution')->find($this->selectedId)

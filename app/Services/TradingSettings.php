@@ -151,4 +151,15 @@ class TradingSettings
         Setting::set('decision_ttl_minutes', max(5, $minutes));
         Cache::forget('trading.decision_ttl_minutes');
     }
+
+    public static function perPage(): int
+    {
+        return (int) Setting::get('per_page', 25);
+    }
+
+    public static function setPerPage(int $n): void
+    {
+        Setting::set('per_page', max(5, min(200, $n)));
+        Cache::forget('trading.per_page');
+    }
 }

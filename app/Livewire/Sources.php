@@ -3,6 +3,7 @@ namespace App\Livewire;
 
 use App\Models\Source;
 use Livewire\Attributes\Layout;
+use App\Services\TradingSettings;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -91,7 +92,7 @@ class Sources extends Component
 
     public function render()
     {
-        $sources = Source::withCount('articles')->latest()->paginate(20);
+        $sources = Source::withCount('articles')->latest()->paginate(TradingSettings::perPage());
         return view('livewire.sources', compact('sources'));
     }
 }

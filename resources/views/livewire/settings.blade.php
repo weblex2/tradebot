@@ -206,6 +206,11 @@
                     <input type="number" wire:model="decisionTtlMinutes" min="5" max="1440" class="input-glass w-full">
                     @error('decisionTtlMinutes') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
+                <div>
+                    <label class="block text-xs text-white/50 mb-1.5">Einträge pro Seite</label>
+                    <input type="number" wire:model="perPage" min="5" max="200" class="input-glass w-full">
+                    @error('perPage') <span class="text-neon-red text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
             </div>
 
             <div class="px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-white/30 space-y-1">
@@ -213,6 +218,7 @@
                 <div>Confidence unter <span class="text-white/60">{{ $minConfidence }}%</span> → kein Trade.</div>
                 <div>Mindestens <span class="text-white/60">€{{ $minReserveUsd }}</span> Cash bleibt immer unberührt.</div>
                 <div>Max. <span class="text-white/60">{{ $maxExposurePct }}%</span> Portfolio in einem Asset. Decisions verfallen nach <span class="text-white/60">{{ $decisionTtlMinutes }} min</span>.</div>
+                <div>Alle Listen zeigen <span class="text-white/60">{{ $perPage }}</span> Einträge pro Seite.</div>
             </div>
 
             <button type="submit" class="btn-neon-green w-full">Speichern</button>
