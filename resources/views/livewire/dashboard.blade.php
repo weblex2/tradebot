@@ -94,41 +94,83 @@
 
         {{-- Recent Decisions --}}
         <div class="glass-card p-6 lg:col-span-2 flex flex-col" style="max-height: 420px;">
-            <div class="flex items-center justify-between mb-4 shrink-0">
-                <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Recent Decisions</h2>
+            <div class="flex flex-col gap-2 mb-4 shrink-0">
+                {{-- Zeile 1: Titel + Clear pending + Auto Trade --}}
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Recent Decisions</h2>
 
+                    <div class="flex items-center gap-3">
+
+                    {{-- Clear pending decisions (no execution) --}}
+                    @if($expiredPendingCount > 0)
+                        <button wire:click="deleteExpiredDecisions"
+                                wire:confirm="Alle {{ $expiredPendingCount }} pending Decisions (ohne Execution) löschen?"
+                                class="text-xs text-white/30 hover:text-neon-red transition-colors inline-flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            {{ $expiredPendingCount }} pending
+                        </button>
+                    @endif
+
+                    {{-- Auto Trade Toggle --}}
+                    <button wire:click="toggleAutoTrade" class="flex items-center gap-2.5 group">
+                        <span class="text-xs font-medium {{ $autoTrade ? 'text-neon-green' : 'text-white/40' }} transition-colors">
+                            Auto Trade
+                        </span>
+                        <div class="relative w-10 h-5 rounded-full transition-colors duration-300 {{ $autoTrade ? 'bg-neon-green/30 border border-neon-green/50' : 'bg-white/10 border border-white/20' }}">
+                            <div class="absolute top-0.5 w-4 h-4 rounded-full shadow transition-all duration-300 {{ $autoTrade ? 'left-5 bg-neon-green' : 'left-0.5 bg-white/40' }}"></div>
+                        </div>
+                    </button>
+                    </div>
+                </div>
+
+                {{-- Zeile 2: Analyse starten + Test Trade --}}
                 <div class="flex items-center gap-3">
+
+                {{-- Run Analysis Button --}}
+                @if($analysisDone)
+                    {{-- Fertig-Zustand: kurze Bestätigung --}}
+                    <span class="text-xs text-neon-green inline-flex items-center gap-1.5 animate-pulse-once">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Analyse fertig!
+                    </span>
+                @elseif($analysisRunning)
+                    {{-- Läuft-Zustand: Spinner mit Poll --}}
+                    <span wire:poll.3s class="text-xs text-neon-blue/80 inline-flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Analyse läuft…
+                    </span>
+                @else
+                    {{-- Standard-Button --}}
+                    <button wire:click="runAnalysis"
+                            wire:loading.attr="disabled"
+                            wire:confirm="Analyse jetzt manuell starten?"
+                            class="text-xs px-3 py-1.5 rounded-lg bg-neon-blue/20 border border-neon-blue/40 text-neon-blue hover:bg-neon-blue/30 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50">
+                        <svg wire:loading wire:target="runAnalysis" class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        <svg wire:loading.remove wire:target="runAnalysis" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                        Analyse starten
+                    </button>
+                @endif
+
                 {{-- Test Trade Button --}}
                 <button wire:click="createTestTrade"
                         wire:confirm="Test-Trade erstellen: SOL verkaufen für €1?"
-                        class="text-xs text-white/30 hover:text-neon-blue transition-colors inline-flex items-center gap-1">
+                        class="text-xs px-3 py-1.5 rounded-lg bg-neon-blue/20 border border-neon-blue/40 text-neon-blue hover:bg-neon-blue/30 transition-colors inline-flex items-center gap-1.5">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     Test Trade
                 </button>
 
-                {{-- Clear pending decisions (no execution) --}}
-                @if($expiredPendingCount > 0)
-                    <button wire:click="deleteExpiredDecisions"
-                            wire:confirm="Alle {{ $expiredPendingCount }} pending Decisions (ohne Execution) löschen?"
-                            class="text-xs text-white/30 hover:text-neon-red transition-colors inline-flex items-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                        {{ $expiredPendingCount }} pending
-                    </button>
-                @endif
-
-                {{-- Auto Trade Toggle --}}
-                <button wire:click="toggleAutoTrade" class="flex items-center gap-2.5 group">
-                    <span class="text-xs font-medium {{ $autoTrade ? 'text-neon-green' : 'text-white/40' }} transition-colors">
-                        Auto Trade
-                    </span>
-                    <div class="relative w-10 h-5 rounded-full transition-colors duration-300 {{ $autoTrade ? 'bg-neon-green/30 border border-neon-green/50' : 'bg-white/10 border border-white/20' }}">
-                        <div class="absolute top-0.5 w-4 h-4 rounded-full shadow transition-all duration-300 {{ $autoTrade ? 'left-5 bg-neon-green' : 'left-0.5 bg-white/40' }}"></div>
-                    </div>
-                </button>
                 </div>
             </div>
 
